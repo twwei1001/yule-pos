@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>悠楽 SPA - 智慧輪牌與 POS 系統 (穩定修復版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 pb-20">
+
+    <!-- 頂部導覽列 -->
+    <header class="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-base font-bold tracking-wide">悠楽 SPA (銀座店)</h1>
+                <p class="text-xs text-slate-400">智慧輪牌、POS 收銀與評價管理系統</p>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button onclick="openTabletModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs font-semibold shadow flex items-center gap-1 transition">
+                    <i class="fa-solid fa-tablet-screen-button"></i> <span>平板中日英點單</span>
+                </button>
+                <button onclick="openBossDashboard()" class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded-lg text-xs font-semibold shadow flex items-center gap-1 transition">
+                    <i class="fa-solid fa-chart-line"></i> <span>老闆後台</span>
+                </button>
+                <button onclick="openAttendanceModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-lg text-xs font-semibold border border-slate-700 flex items-center gap-1">
+                    <i class="fa-solid fa-clock"></i> <span>出勤</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-4 space-y-6">
+
+        <!-- 快速開單與 POS 區塊 -->
+        <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
+            <h2 class="text-sm font-bold text-slate-700 border-b pb-2 flex items-center gap-2">
+                <i class="fa-solid fa-cash-register text-amber-500"></i> POS 櫃檯開單與智慧排單
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- 項目設定 -->
+                <div class="space-y-3 bg-slate-50 p-3 rounded-xl border">
+                    <span class="text-xs font-bold text-slate-600 block">1. 核心療程選擇</span>
+                    <div class="space-y-2 text-xs">
+                        <label class="flex items-center gap-2"><input type="checkbox" id="pos-machine" class="rounded" onchange="calcPOS()"> 機器護理 (ハイパー/キャビ)</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" id="pos-kogao" class="rounded" onchange="calcPOS()"> 小顏＋頭部按摩</label>
+                        <div>
+                            <label class="text-slate-500 block mb-1">基礎手法：</label>
+                            <select id="pos-massage" class="w-full p-2 border rounded-lg bg-white" onchange="calcPOS()">
+                                <option value="oil">油推 (60分)</option>
+                                <option value="shiatsu">指壓 (60分)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-slate-500 block mb-1">足底按摩：</label>
+                            <select id="pos-foot" class="w-full p-2 border rounded-lg bg-white" onchange="calcPOS()">
+                                <option value="0">無足底</option>
+                                <option value="30">足底 30分</option>
+                                <option value="60">足底 60分</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 優惠與加價 -->
+                <div class="space-y-3 bg-slate-50 p-3 rounded-xl border">
+                    <span class="text-xs font-bold text-slate-600 block">2. 優惠 (擇一) 與加價項目</span>
+                    <div class="space-y-2 text-xs">
+                        <div>
+                            <label class="text-slate-500 block mb-1">互斥優惠 (僅能選一)：</label>
+                            <select id="pos-discount" class="w-full p-2 border rounded-lg bg-white" onchange="calcPOS()">
+                                <option value="none">無優惠</option>
+                                <option value="member10">會員點數 10點折 1000円</option>
+                                <option value="pair75">平日ペア 75分減 500円</option>
+                                <option value="pair90">平日ペア 90分減 1000円</option>
+                                <option value="pair120">平日ペア 120分減 1500円</option>
+                                <option value="pair150">平日ペア 150分減 2500円</option>
+                                <option value="bday">生日/刮刮卡 10分延長</option>
+                                <option value="scratch_sheet">刮刮卡：免 200円床單代</option>
+                                <option value="scratch_4k">刮刮卡：4千以上課程減 1000円</option>
+                                <option value="scratch_10k">刮刮卡：1萬以上課程減 5000円</option>
+                            </select>
+                        </div>
+                        <div class="pt-2 border-t space-y-1">
+                            <label class="flex items-center gap-1"><input type="checkbox" id="pos-sheet" class="rounded" checked onchange="calcPOS()"> 收取床單費 200円 (可與優惠併用)</label>
+                            <label class="flex items-center gap-1"><input type="checkbox" id="pos-card" class="rounded" onchange="calcPOS()"> 刷卡結帳 (+5% 手續費)</label>
+                            <label class="flex items-center gap-1"><input type="checkbox" id="pos-specified" class="rounded" onchange="togglePOSSpecified()"> 指名技師 (+200円，不計抽成)</label>
+                        </div>
+                        <div id="pos-spec-container" class="hidden pt-1">
+                            <select id="pos-spec-therapist" class="w-full p-1.5 border rounded bg-white text-xs"></select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 金額結算與執行 -->
+                <div class="space-y-3 bg-indigo-50 p-3 rounded-xl border border-indigo-100 flex flex-col justify-between">
+                    <div class="space-y-1">
+                        <span class="text-xs font-bold text-indigo-900 block">3. 結算金額預覽</span>
+                        <div id="pos-summary" class="text-xs text-indigo-800 space-y-1">
+                            請選擇療程...
+                        </div>
+                    </div>
+                    <button onclick="executeCheckoutAndDispatch()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
+                        確認收款並派單/輪牌
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 技師輪牌與狀態牆 -->
+        <section class="space-y-3">
+            <div class="flex justify-between items-center">
+                <h2 class="text-base font-bold text-slate-700 flex items-center gap-2">
+                    <i class="fa-solid fa-users text-indigo-500"></i> 技師即時輪牌與狀態牆 (8位技師管理)
+                </h2>
+                <div class="flex gap-2">
+                    <button onclick="openAddTherapistModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg font-bold flex items-center gap-1">
+                        <i class="fa-solid fa-user-plus"></i> 新增技師
+                    </button>
+                    <button onclick="resetAllData()" class="text-xs text-slate-400 hover:text-red-500 underline">重置資料</button>
+                </div>
+            </div>
+            
+            <div id="therapist-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                <!-- 動態渲染 -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 平板點單 Modal -->
+    <div id="tablet-modal" class="fixed inset-0 bg-black/60 hidden flex justify-center items-center z-50 p-4">
+        <div class="bg-white rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-slate-800">悠楽 SPA 多言語平板點餐</h3>
+                <button onclick="closeTabletModal()" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div class="p-3 border rounded-xl bg-slate-50 space-y-2 cursor-pointer hover:border-indigo-500 transition" onclick="selectTabletCourse('hyper', 8000)">
+                    <div class="font-bold text-sm text-slate-800">ハイパー雕塑護理</div>
+                    <p class="text-slate-500">日：脂肪燃焼ボディ痩身<br>英：Fat burning body shaping</p>
+                    <span class="text-indigo-600 font-bold">8,000円 / 30分</span>
+                </div>
+                <div class="p-3 border rounded-xl bg-slate-50 space-y-2 cursor-pointer hover:border-indigo-500 transition" onclick="selectTabletCourse('oil', 7980)">
+                    <div class="font-bold text-sm text-slate-800">精油舒壓按摩</div>
+                    <p class="text-slate-500">日：アロママッサージで極上の癒やし<br>英：Relaxing aroma oil massage</p>
+                    <span class="text-indigo-600 font-bold">7,980円 / 60分</span>
+                </div>
+                <div class="p-3 border rounded-xl bg-slate-50 space-y-2 cursor-pointer hover:border-indigo-500 transition" onclick="selectTabletCourse('kogao', 6000)">
+                    <div class="font-bold text-sm text-slate-800">小顏＋頭部按摩</div>
+                    <p class="text-slate-500">日：小顔矯正＋ヘッドスパ<br>英：Face lift & Head massage</p>
+                    <span class="text-indigo-600 font-bold">6,000円 / 50分</span>
+                </div>
+                <div class="p-3 border rounded-xl bg-slate-50 space-y-2 cursor-pointer hover:border-indigo-500 transition" onclick="selectTabletCourse('foot', 4000)">
+                    <div class="font-bold text-sm text-slate-800">足底經絡按摩</div>
+                    <p class="text-slate-500">日：足裏リフレクソロジー<br>英：Foot reflexology massage</p>
+                    <span class="text-indigo-600 font-bold">4,000円 / 30分</span>
+                </div>
+            </div>
+            <button onclick="closeTabletModal()" class="w-full bg-slate-900 text-white py-2.5 rounded-xl font-bold text-xs">關閉</button>
+        </div>
+    </div>
+
+    <!-- 老板後台 Modal -->
+    <div id="boss-modal" class="fixed inset-0 bg-black/60 hidden flex justify-center items-center z-50 p-4">
+        <div class="bg-white rounded-3xl max-w-3xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-slate-800">老板專用後台管理</h3>
+                <button onclick="closeBossDashboard()" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="boss-therapist-stats" class="space-y-3"></div>
+            <button onclick="closeBossDashboard()" class="w-full bg-slate-900 text-white py-2.5 rounded-xl font-bold text-xs">關閉</button>
+        </div>
+    </div>
+
+    <!-- 技能設定 Modal -->
+    <div id="skill-modal" class="fixed inset-0 bg-black/50 hidden flex justify-center items-center z-50 p-4">
+        <div class="bg-white rounded-2xl p-5 max-w-md w-full space-y-4 shadow-xl">
+            <h3 class="text-base font-bold text-slate-800 flex justify-between items-center">
+                <span>永久技能設定：<span id="modal-therapist-name"></span></span>
+                <button onclick="closeSkillModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </h3>
+            <div id="skill-checkboxes" class="grid grid-cols-2 gap-2 text-xs">
+                <label class="flex items-center gap-2 p-2 border rounded-lg"><input type="checkbox" value="shiatsu" class="skill-chk"> 指壓</label>
+                <label class="flex items-center gap-2 p-2 border rounded-lg"><input type="checkbox" value="oil" class="skill-chk"> 油推</label>
+                <label class="flex items-center gap-2 p-2 border rounded-lg"><input type="checkbox" value="hyper" class="skill-chk"> ハイパー (機器)</label>
+                <label class="flex items-center gap-2 p-2 border rounded-lg"><input type="checkbox" value="cavi" class="skill-chk"> キャビ (機器)</label>
+                <label class="flex items-center gap-2 p-2 border rounded-lg"><input type="checkbox" value="kogao" class="skill-chk"> 小顏＋頭部</label>
+                <label class="flex items-center gap-2 p-2 border rounded-lg"><input type="checkbox" value="foot" class="skill-chk"> 足底按摩</label>
+            </div>
+            <button onclick="saveTherapistSkills()" class="w-full bg-slate-900 text-white py-2.5 rounded-xl font-bold text-xs">儲存技能</button>
+        </div>
+    </div>
+
+    <!-- 出勤點名 Modal -->
+    <div id="attendance-modal" class="fixed inset-0 bg-black/50 hidden flex justify-center items-center z-50 p-4">
+        <div class="bg-white rounded-2xl p-5 max-w-md w-full space-y-4 shadow-xl">
+            <h3 class="text-base font-bold text-slate-800 flex justify-between items-center">
+                <span>每日出勤與班別點名</span>
+                <button onclick="closeAttendanceModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </h3>
+            <div id="attendance-list" class="space-y-3 max-h-60 overflow-y-auto text-xs"></div>
+            <button onclick="closeAttendanceModal()" class="w-full bg-slate-900 text-white py-2.5 rounded-xl font-bold text-xs">關閉</button>
+        </div>
+    </div>
+
+    <!-- 新增技師 Modal -->
+    <div id="add-therapist-modal" class="fixed inset-0 bg-black/50 hidden flex justify-center items-center z-50 p-4">
+        <div class="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-xl">
+            <h3 class="text-base font-bold text-slate-800 flex justify-between items-center">
+                <span>新增技師</span>
+                <button onclick="closeAddTherapistModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </h3>
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-500 mb-1">技師名稱</label>
+                    <input type="text" id="new-therapist-name" placeholder="例如：108號技師" class="w-full p-2.5 border rounded-xl">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-500 mb-1">預設班別</label>
+                    <select id="new-therapist-shift" class="w-full p-2.5 border rounded-xl bg-white">
+                        <option value="09:30">09:30 (開門住店)</option>
+                        <option value="10:00" selected>10:00 (早班)</option>
+                        <option value="11:00">11:00 (晚班)</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="confirmAddTherapist()" class="w-full bg-indigo-600 text-white py-2.5 rounded-xl font-bold text-xs">確認新增</button>
+        </div>
+    </div>
+
+    <script>
+        let therapists = [];
+        const defaultTherapists = [
+            { id: 1, name: "101號 (開門)", shift: "09:30", status: "idle", queueOrder: 1, todayCount: 0, endTime: null, skills: ["shiatsu", "oil", "hyper", "cavi", "kogao", "foot"], gReview: 0, hReview: 0, revenue: 0 },
+            { id: 2, name: "102號 (住店)", shift: "09:30", status: "idle", queueOrder: 2, todayCount: 0, endTime: null, skills: ["shiatsu", "oil", "hyper", "foot"], gReview: 0, hReview: 0, revenue: 0 },
+            { id: 3, name: "103號", shift: "10:00", status: "idle", queueOrder: 3, todayCount: 0, endTime: null, skills: ["shiatsu", "oil", "kogao", "foot"], gReview: 0, hReview: 0, revenue: 0 },
+            { id: 4, name: "104號", shift: "10:00", status: "idle", queueOrder: 4, todayCount: 0, endTime: null, skills: ["shiatsu", "oil", "foot"], gReview: 0, hReview: 0, revenue: 0 },
+            { id: 5, name: "105號", shift: "10:00", status: "idle", queueOrder: 5, todayCount: 0, endTime: null, skills: ["shiatsu", "oil", "hyper", "kogao"], gReview: 0, hReview: 0, revenue: 0 },
+            { id: 6, name: "106號", shift: "11:00", status: "idle", queueOrder: 6, todayCount: 0, endTime: null, skills: ["shiatsu", "oil", "foot"], gReview: 0, hReview: 0, revenue: 0 },
+            { id: 7, name: "107號", shift: "11:00", status: "idle", queueOrder: 7, todayCount: 0, endTime: null, skills: ["shiatsu", "oil", "kogao"], gReview: 0, hReview: 0, revenue: 0 },
+            { id: 8, name: "108號", shift: "11:00", status: "idle", queueOrder: 8, todayCount: 0, endTime: null, skills: ["shiatsu", "oil", "foot", "cavi"], gReview: 0, hReview: 0, revenue: 0 }
+        ];
+
+        try {
+            const saved = localStorage.getItem('yule_therapists_v9');
+            therapists = saved ? JSON.parse(saved) : defaultTherapists;
+        } catch (e) {
+            therapists = defaultTherapists;
+        }
+
+        let editingTherapistId = null;
+
+        function saveAll() {
+            try {
+                localStorage.setItem('yule_therapists_v9', JSON.stringify(therapists));
+            } catch(e) {}
+            renderAll();
+        }
+
+        function calcPOS() {
+            try {
+                const hasMachine = document.getElementById('pos-machine').checked;
+                const hasKogao = document.getElementById('pos-kogao').checked;
+                const massage = document.getElementById('pos-massage').value;
+                const foot = parseInt(document.getElementById('pos-foot').value);
+                const discountType = document.getElementById('pos-discount').value;
+                const includeSheet = document.getElementById('pos-sheet').checked;
+                const includeCard = document.getElementById('pos-card').checked;
+                const isSpecified = document.getElementById('pos-specified').checked;
+
+                let basePrice = 0;
+                if (hasMachine) basePrice += 8000;
+                if (hasKogao) basePrice += 6000;
+                basePrice += (massage === 'oil' ? 7980 : 6980);
+                if (foot === 30) basePrice += 4000;
+                if (foot === 60) basePrice += 7500;
+
+                let discountAmount = 0;
+                if (discountType === 'member10') discountAmount = 1000;
+                else if (discountType === 'pair75') discountAmount = 500;
+                else if (discountType === 'pair90') discountAmount = 1000;
+                else if (discountType === 'pair120') discountAmount = 1500;
+                else if (discountType === 'pair150') discountAmount = 2500;
+                else if (discountType === 'scratch_4k') discountAmount = 1000;
+                else if (discountType === 'scratch_10k') discountAmount = 5000;
+
+                let sheetFee = includeSheet ? 200 : 0;
+                if (discountType === 'scratch_sheet') sheetFee = 0;
+
+                let subTotal = Math.max(0, basePrice - discountAmount) + sheetFee;
+                let cardFee = includeCard ? Math.round(subTotal * 0.05) : 0;
+                let finalPrice = subTotal + cardFee;
+                if (isSpecified) finalPrice += 200;
+
+                document.getElementById('pos-summary').innerHTML = `
+                    <div>課程原價：${basePrice} 円</div>
+                    <div>優惠折扣：-${discountAmount} 円</div>
+                    <div>床單費：${sheetFee} 円 | 手續費：${cardFee} 円</div>
+                    ${isSpecified ? '<div>指名費：+200 円</div>' : ''}
+                    <div class="font-bold text-indigo-900 pt-1 border-t">最終應收：${finalPrice} 円</div>
+                `;
+            } catch(e) {}
+        }
+
+        function togglePOSSpecified() {
+            const isSpec = document.getElementById('pos-specified').checked;
+            const container = document.getElementById('pos-spec-container');
+            container.classList.toggle('hidden', !isSpec);
+            if (isSpec) {
+                const select = document.getElementById('pos-spec-therapist');
+                select.innerHTML = '';
+                therapists.forEach(t => {
+                    select.innerHTML += `<option value="${t.id}">${t.name} (${t.shift})</option>`;
+                });
+            }
+            calcPOS();
+        }
+
+        function executeCheckoutAndDispatch() {
+            const hasMachine = document.getElementById('pos-machine').checked;
+            const hasKogao = document.getElementById('pos-kogao').checked;
+            const massageType = document.getElementById('pos-massage').value;
+            const footVal = parseInt(document.getElementById('pos-foot').value);
+            const isSpecified = document.getElementById('pos-specified').checked;
+
+            let tasks = [];
+            if (hasMachine) tasks.push({ type: 'machine', name: '機器護理', duration: 30 });
+            tasks.push({ type: massageType, name: massageType === 'oil' ? '油推' : '指壓', duration: 60 });
+            if (hasKogao) tasks.push({ type: 'kogao', name: '小顏＋頭部', duration: 50 });
+            if (footVal > 0) tasks.push({ type: 'foot', name: '足底按摩', duration: footVal });
+
+            if (isSpecified) {
+                const specId = parseInt(document.getElementById('pos-spec-therapist').value);
+                const target = therapists.find(t => t.id === specId);
+                assignTask(target, tasks, true);
+            } else {
+                const idleQueue = therapists.filter(t => t.status === 'idle').sort((a,b) => a.queueOrder - b.queueOrder);
+                if (idleQueue.length === 0) return alert("目前沒有空閒技師可派單！");
+
+                let firstTaskType = tasks[0].type;
+                let capableTherapist = idleQueue.find(t => {
+                    if (firstTaskType === 'machine') return t.skills.includes('hyper') || t.skills.includes('cavi');
+                    return t.skills.includes(firstTaskType);
+                });
+
+                if (!capableTherapist && firstTaskType === 'machine') {
+                    const oilTherapist = idleQueue.find(t => t.skills.includes('oil') || t.skills.includes('shiatsu'));
+                    if (oilTherapist) {
+                        alert("提示：現無會機器技師，系統自動調整流程：改為先做按摩，後續再由機器技師接手！");
+                        tasks = tasks.filter(t => t.type !== 'machine').concat(tasks.filter(t => t.type === 'machine'));
+                        capableTherapist = oilTherapist;
+                    }
+                }
+
+                if (!capableTherapist) return alert("目前排班中無人具備對應技能！");
+                assignTask(capableTherapist, tasks, false);
+            }
+            saveAll();
+        }
+
+        function assignTask(therapist, tasks, isSpecified) {
+            const totalDuration = tasks.reduce((sum, t) => sum + t.duration, 0);
+            therapist.status = 'busy';
+            therapist.endTime = Date.now() + totalDuration * 60 * 1000;
+            therapist.todayCount += 1;
+            therapist.revenue += totalDuration * 100;
+
+            if (!isSpecified) {
+                const remainingIdle = therapists.filter(t => t.status === 'idle' && t.id !== therapist.id).sort((a,b) => a.queueOrder - b.queueOrder);
+                remainingIdle.forEach((t, idx) => t.queueOrder = idx + 1);
+                therapist.queueOrder = 999;
+            }
+            alert(`成功派單給 ${therapist.name}！ 總時長 ${totalDuration} 分鐘`);
+        }
+
+        function completeService(id) {
+            const therapist = therapists.find(t => t.id === id);
+            if (!therapist) return;
+            therapist.status = 'idle';
+            therapist.endTime = null;
+            const maxQueue = Math.max(...therapists.filter(t => t.status === 'idle').map(t => t.queueOrder), 0);
+            therapist.queueOrder = maxQueue + 1;
+            saveAll();
+        }
+
+        function punishRetire(id) {
+            const therapist = therapists.find(t => t.id === id);
+            if (!therapist) return;
+            therapist.status = 'idle';
+            const maxQueue = Math.max(...therapists.filter(t => t.status === 'idle').map(t => t.queueOrder), 0);
+            therapist.queueOrder = maxQueue + 1;
+            alert(`${therapist.name} 發生退牌，已移至末位！`);
+            saveAll();
+        }
+
+        function extendTime(id, mins) {
+            const therapist = therapists.find(t => t.id === id);
+            if (!therapist || therapist.status !== 'busy') return;
+            therapist.endTime += mins * 60 * 1000;
+            alert(`${therapist.name} 延長 ${mins} 分鐘！`);
+            saveAll();
+        }
+
+        function addReview(id, type) {
+            const t = therapists.find(x => x.id === id);
+            if (!t) return;
+            if (type === 'g') t.gReview += 1;
+            if (type === 'h') t.hReview += 1;
+            saveAll();
+            alert(`${t.name} 評價 +1！`);
+        }
+
+        function openTabletModal() { document.getElementById('tablet-modal').classList.remove('hidden'); }
+        function closeTabletModal() { document.getElementById('tablet-modal').classList.add('hidden'); }
+        function selectTabletCourse(type, price) {
+            if (type === 'hyper') document.getElementById('pos-machine').checked = true;
+            if (type === 'oil') document.getElementById('pos-massage').value = 'oil';
+            if (type === 'kogao') document.getElementById('pos-kogao').checked = true;
+            if (type === 'foot') document.getElementById('pos-foot').value = '30';
+            calcPOS();
+            closeTabletModal();
+        }
+
+        function openBossDashboard() {
+            const container = document.getElementById('boss-therapist-stats');
+            container.innerHTML = '';
+            therapists.forEach(t => {
+                container.innerHTML += `
+                    <div class="flex justify-between items-center p-3 border rounded-xl bg-slate-50 text-xs">
+                        <div>
+                            <span class="font-bold text-sm text-slate-800">${t.name}</span>
+                            <div class="text-slate-500 mt-0.5">服務：${t.todayCount} 節 | 業績：${t.revenue} 円</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded font-bold">G:${t.gReview}</span>
+                            <span class="bg-orange-100 text-orange-800 px-2 py-1 rounded font-bold">H:${t.hReview}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            document.getElementById('boss-modal').classList.remove('hidden');
+        }
+        function closeBossDashboard() { document.getElementById('boss-modal').classList.add('hidden'); }
+
+        function openSkillModal(id) {
+            editingTherapistId = id;
+            const t = therapists.find(x => x.id === id);
+            document.getElementById('modal-therapist-name').innerText = t.name;
+            document.querySelectorAll('.skill-chk').forEach(chk => {
+                chk.checked = t.skills.includes(chk.value);
+            });
+            document.getElementById('skill-modal').classList.remove('hidden');
+        }
+        function closeSkillModal() { document.getElementById('skill-modal').classList.add('hidden'); }
+        function saveTherapistSkills() {
+            const t = therapists.find(x => x.id === editingTherapistId);
+            t.skills = [];
+            document.querySelectorAll('.skill-chk').forEach(chk => {
+                if (chk.checked) t.skills.push(chk.value);
+            });
+            closeSkillModal();
+            saveAll();
+        }
+
+        function openAttendanceModal() {
+            const list = document.getElementById('attendance-list');
+            list.innerHTML = '';
+            therapists.forEach(t => {
+                list.innerHTML += `
+                    <div class="flex justify-between items-center p-2 border rounded-xl bg-slate-50">
+                        <span class="font-bold">${t.name}</span>
+                        <select onchange="updateShift(${t.id}, this.value)" class="p-1 border rounded bg-white">
+                            <option value="09:30" ${t.shift==='09:30'?'selected':''}>09:30 (開門)</option>
+                            <option value="10:00" ${t.shift==='10:00'?'selected':''}>10:00 (早班)</option>
+                            <option value="11:00" ${t.shift==='11:00'?'selected':''}>11:00 (晚班)</option>
+                        </select>
+                    </div>
+                `;
+            });
+            document.getElementById('attendance-modal').classList.remove('hidden');
+        }
+        function closeAttendanceModal() { document.getElementById('attendance-modal').classList.add('hidden'); }
+        function updateShift(id, shift) {
+            const t = therapists.find(x => x.id === id);
+            if (t) t.shift = shift;
+            saveAll();
+        }
+
+        function openAddTherapistModal() { document.getElementById('add-therapist-modal').classList.remove('hidden'); }
+        function closeAddTherapistModal() { document.getElementById('add-therapist-modal').classList.add('hidden'); }
+        function confirmAddTherapist() {
+            const name = document.getElementById('new-therapist-name').value.trim();
+            const shift = document.getElementById('new-therapist-shift').value;
+            if (!name) return alert("請輸入名稱！");
+            const newId = therapists.length > 0 ? Math.max(...therapists.map(t => t.id)) + 1 : 1;
+            const maxQueue = therapists.length > 0 ? Math.max(...therapists.map(t => t.queueOrder)) : 0;
+
+            therapists.push({
+                id: newId, name: name, shift: shift, status: "idle", queueOrder: maxQueue + 1,
+                todayCount: 0, endTime: null, skills: ["shiatsu", "oil", "foot"], gReview: 0, hReview: 0, revenue: 0
+            });
+            document.getElementById('new-therapist-name').value = '';
+            closeAddTherapistModal();
+            saveAll();
+        }
+
+        function deleteTherapist(id) {
+            if (confirm("確定刪除？")) {
+                therapists = therapists.filter(t => t.id !== id);
+                therapists.filter(t => t.status === 'idle').forEach((t, idx) => t.queueOrder = idx + 1);
+                saveAll();
+            }
+        }
+
+        function resetAllData() {
+            if (confirm("確定重置？")) {
+                localStorage.removeItem('yule_therapists_v9');
+                location.reload();
+            }
+        }
+
+        function renderAll() {
+            const grid = document.getElementById('therapist-grid');
+            grid.innerHTML = '';
+
+            const sorted = [...therapists].sort((a,b) => {
+                if (a.status === 'idle' && b.status === 'idle') return a.queueOrder - b.queueOrder;
+                if (a.status === 'idle') return -1;
+                if (b.status === 'idle') return 1;
+                return (a.endTime || 0) - (b.endTime || 0);
+            });
+
+            sorted.forEach(t => {
+                const isIdle = t.status === 'idle';
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-2xl border ${isIdle ? 'bg-white border-slate-200' : 'bg-amber-50 border-amber-200'} shadow-sm flex flex-col justify-between space-y-3`;
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-bold text-sm text-slate-800">${t.name}</span>
+                                ${isIdle ? `<span class="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded-full font-bold">順位 ${t.queueOrder}</span>`
+                                         : `<span class="bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">服務中</span>`}
+                            </div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">班別：${t.shift}</div>
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="openSkillModal(${t.id})" class="text-[10px] bg-slate-100 p-1 rounded"><i class="fa-solid fa-gear"></i></button>
+                            <button onclick="deleteTherapist(${t.id})" class="text-[10px] bg-red-50 text-red-600 p-1 rounded"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+
+                    ${!isIdle ? `
+                        <div class="space-y-1.5">
+                            <div class="text-xs font-bold text-amber-600" id="timer-${t.id}">計算中...</div>
+                            <div class="flex gap-1">
+                                <button onclick="extendTime(${t.id}, 10)" class="flex-1 bg-indigo-50 text-indigo-700 text-[10px] py-1 rounded font-bold">+10分</button>
+                                <button onclick="punishRetire(${t.id})" class="flex-1 bg-red-50 text-red-700 text-[10px] py-1 rounded font-bold">退牌</button>
+                            </div>
+                        </div>
+                    ` : `<div class="text-[11px] text-slate-400">等待派單中...</div>`}
+
+                    <div class="pt-2 border-t flex justify-between items-center text-[11px]">
+                        <div class="flex gap-1">
+                            <button onclick="addReview(${t.id}, 'g')" class="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">+G(${t.gReview})</button>
+                            <button onclick="addReview(${t.id}, 'h')" class="bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">+H(${t.hReview})</button>
+                        </div>
+                        ${!isIdle ? `<button onclick="completeService(${t.id})" class="bg-slate-200 text-slate-700 px-2.5 py-1 rounded font-bold">完工</button>` : ''}
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            calcPOS();
+        }
+
+        setInterval(() => {
+            const now = Date.now();
+            therapists.forEach(t => {
+                if (t.status === 'busy' && t.endTime) {
+                    const remainingSec = Math.max(0, Math.floor((t.endTime - now) / 1000));
+                    const mins = Math.floor(remainingSec / 60);
+                    const secs = remainingSec % 60;
+                    const el = document.getElementById(`timer-${t.id}`);
+                    if (el) el.innerText = `剩餘：${mins}分 ${secs < 10 ? '0' : ''}${secs}秒`;
+                    if (remainingSec === 0) completeService(t.id);
+                }
+            });
+        }, 1000);
+
+        renderAll();
+    </script>
+</body>
+</html>
