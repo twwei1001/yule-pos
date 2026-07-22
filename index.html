@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>悠樂 SPA - POS 結算與輪牌系統</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        h2 { color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, select { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 6px; }
+        .checkbox-group { display: flex; align-items: center; }
+        .checkbox-group input { width: auto; margin-right: 10px; }
+        button { background: #3498db; color: white; border: none; padding: 12px 20px; width: 100%; border-radius: 6px; font-size: 16px; cursor: pointer; }
+        button:hover { background: #2980b9; }
+        .result { margin-top: 20px; padding: 15px; background: #e8f4f8; border-left: 5px solid #3498db; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>悠樂 SPA 結帳與輪牌模擬器</h2>
+    
+    <div class="form-group">
+        <label>課程基礎價格 (税込):</label>
+        <input type="number" id="basePrice" value="7980">
+    </div>
+
+    <div class="form-group checkbox-group">
+        <input type="checkbox" id="hasDiscount">
+        <label for="hasDiscount" style="margin-bottom:0;">享有割引（勾選則免收 200円 床單費）</label>
+    </div>
+
+    <div class="form-group checkbox-group">
+        <input type="checkbox" id="isNamed">
+        <label for="isNamed" style="margin-bottom:0;">技師指名 (+200円 指名費)</label>
+    </div>
+
+    <div class="form-group checkbox-group">
+        <input type="checkbox" id="isLailaiPayment">
+        <label for="isLailaiPayment" style="margin-bottom:0; color: #c0392b;">【樂來收款】（我方不計入營收帳務）</label>
+    </div>
+
+    <button onclick="calculate()">計算結帳與觸發輪牌</button>
+
+    <div class="result" id="resultArea" style="display:none;">
+        <h3>計算結果：</h3>
+        <p id="resDetails"></p>
+    </div>
+</div>
+
+<script>
+function calculate() {
+    const basePrice = Number(document.getElementById('basePrice').value);
+    const hasDiscount = document.getElementById('hasDiscount').checked;
+    const isNamed = document.getElementById('isNamed').checked;
+    const isLailaiPayment = document.getElementById('isLailaiPayment').checked;
+
+    const SHEET_FEE = 200;
+    const NAME_FEE = 200;
+
+    // 床單費邏輯：有割引免收
+    const sheetFee = hasDiscount ? 0 : SHEET_FEE;
+    // 指名費邏輯
+    const nameFee = isNamed ? NAME_FEE : 0;
+    // 總金額
+    const finalPayable = basePrice + sheetFee + nameFee;
+
+    // 帳務歸屬邏輯
+    let revenueNote = "【本店自營帳務】正常計入營收: ¥" + finalPayable;
+    if (isLailaiPayment) {
+        revenueNote = "<span style='color:red; font-weight:bold;'>【樂來收款】我方不計入帳務 (0元)</span>";
+    }
+
+    // 顯示結果
+    const resArea = document.getElementById('resultArea');
+    const resDetails = document.getElementById('resDetails');
+    
+    resArea.style.display = 'block';
+    resDetails.innerHTML = `
+        • 基礎價格: ¥${basePrice}<br>
+        • 床單費 (シーツ代): ¥${sheetFee} ${hasDiscount ? '(因有割引已免收)' : ''}<br>
+        • 指名費: ¥${nameFee}<br>
+        • <b>顧客應付總額: ¥${finalPayable}</b><br><hr>
+        • 帳務狀態: ${revenueNote}<br>
+        • <b>技師輪牌狀態: 已經成功觸發跳牌 (維持輪班權益)</b>
+    `;
+}
+</script>
+
+</body>
+</html>
