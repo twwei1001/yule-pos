@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>悠楽 POS 完整版</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.5.39/vue.global.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { box-sizing: border-box; }
+    .nav-btn { padding: 8px 16px; border-radius: 12px; font-size: 14px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+    .nav-btn.active { background: #2c3e50; color: white; }
+    .nav-btn.inactive { background: #e5e7eb; color: #6b7280; }
+    .nav-btn.inactive:hover { background: #d1d5db; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .status-badge { padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+    .lang-btn { background: #eee; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; }
+    .lang-btn.active { background: #2c3e50; color: white; }
+    .skill-tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; margin: 2px; background: #e2e8f0; }
+    .room-card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px; text-align: center; background: #f9fafb; }
+    .room-card.used { background: #fef2f2; border-color: #fca5a5; }
+    .room-card.cleaning { background: #fffbeb; border-color: #fcd34d; }
+    .room-card.empty { background: #f0fdf4; border-color: #86efac; }
+    .lelai-tag { background: #e9d5ff; color: #6b21a8; font-size: 9px; padding: 0 4px; border-radius: 3px; font-weight: bold; }
+    .staff-id { font-size: 10px; color: #6b7280; background: #f3f4f6; padding: 0 6px; border-radius: 10px; margin-left: 4px; }
+    .prep-warning { animation: blink 1s infinite; }
+    @keyframes blink { 0%{opacity:1;} 50%{opacity:0.3;} 100%{opacity:1;} }
+  </style>
+</head>
+<body>
+
+<div id="app" class="max-w-6xl mx-auto p-4">
+
+  <!-- 頂部導航 -->
+  <div class="flex justify-between items-center mb-4">
+    <div class="flex gap-2">
+      <button class="lang-btn" :class="{ active: lang === 'zh' }" @click="lang='zh'">中文</button>
+      <button class="lang-btn" :class="{ active: lang === 'en' }" @click="lang='en'">English</button>
+      <button class="lang-btn" :class="{ active: lang === 'ja' }" @click="lang='ja'">日本語</button>
+    </div>
+    <div v-if="currentPage === 'boss'" class="text-xs text-amber-600 font-bold">👑 老闆模式</div>
+  </div>
+
+  <!-- 頁面切換 -->
+  <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
+    <button class="nav-btn" :class="currentPage === 'menu' ? 'active' : 'inactive'" @click="currentPage='menu'">📋 課程點餐</button>
+    <button class="nav-btn" :class="currentPage === 'queue' ? 'active' : 'inactive'" @click="currentPage='queue'">🔄 輪牌&房間</button>
+    <button class="nav-btn" :class="currentPage === 'staff' ? 'active' : 'inactive'" @click="currentPage='staff'">👤 技師資訊</button>
+    <button class="nav-btn" :class="currentPage === 'boss' ? 'active' : 'inactive'" @click="enterBossMode">👑 老闆後台</button>
+  </div>
+
+  <!-- ===== 頁面1：課程點餐 ===== -->
+  <div class="page" :class="{ active: currentPage === 'menu' }">
+    <div class="bg-white p-4 rounded-xl shadow">
+      <h2 class="text-xl font-bold mb-4">📋 課程選擇</h2>
+      <div class="flex gap-2 mb-3">
+        <button @click="menuLang='zh'" class="text-xs px-3 py-1 rounded" :class="menuLang==='zh'?'bg-blue-600 text-white':'bg-gray-200'">中文</button>
+        <button @click="menuLang='en'" class="text-xs px-3 py-1 rounded" :class="menuLang==='en'?'bg-blue-600 text-white':'bg-gray-200'">English</button>
+        <button @click="menuLang='ja'" class="text-xs px-3 py-1 rounded" :class="menuLang==='ja'?'bg-blue-600 text-white':'bg-gray-200'">日本語</button>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+        <div v-for="svc in serviceCatalog" :key="svc.id" class="border rounded-xl p-3 hover:shadow-md cursor-pointer" @click="selectService(svc)">
+          <div class="font-bold text-sm">{{ svc[`name_${menuLang}`] }}</div>
+          <div class="text-xs text-gray-500">{{ svc.totalDuration }} 分</div>
+          <div class="text-lg font-bold text-amber-600">¥{{ svc.price.toLocaleString() }}</div>
+          <span v-if="svc.source === 'lelai_instore'" class="text-[8px] bg-purple-100 text-purple-700 px-1 rounded">樂來</span>
+          <span v-else-if="svc.source === 'hotpepper'" class="text-[8px] bg-orange-100 text-orange-700 px-1 rounded">HotPepper</span>
+        </div>
+        <div class="border border-dashed rounded-xl p-3 hover:shadow-md cursor-pointer flex items-center justify-center" @click="openCustomCourse">
+          <span class="text-gray-400">＋ 自訂課程</span>
+        </div>
+      </div>
+      <div v-if="selectedService" class="border-t pt-4 mt-2">
+        <div class="flex justify-between items-center">
+          <div><span class="font-bold">{{ selectedService[`name_${menuLang}`] }}</span><span class="text-sm ml-2">¥{{ selectedService.price }}</span></div>
+          <button @click="selectedService=null" class="text-red-400 text-xs">✕</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mt-2 text-sm">
+          <label><input type="checkbox" v-model="addons.sheets"> 床單 ¥200</label>
+          <label><input type="checkbox" v-model="addons.shimei"> 指名 ¥200</label>
+          <label><input type="checkbox" v-model="addons.footCream"> 腳膏 ¥500</label>
+          <label><input type="checkbox" v-model="addons.eyeMask"> 熱敷眼罩 ¥300</label>
+        </div>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <select v-model="selectedPromo" class="border rounded p-1 text-xs">
+            <option value="none">無優惠</option>
+            <option value="pair">ペア割引</option>
+            <option value="sevenDay">7日再來店</option>
+            <option value="member">會員點數折抵</option>
+            <option value="scratch">刮刮卡</option>
+          </select>
+          <span v-if="selectedPromo !== 'none'" class="text-xs text-green-600">優惠已套用</span>
+        </div>
+        <div class="mt-3 flex justify-between items-center">
+          <div class="text-xl font-bold text-amber-600">¥{{ calculatedTotal }}</div>
+          <button @click="openCheckoutFromMenu" class="bg-gray-800 text-white px-6 py-2 rounded-xl font-bold">結帳</button>
+        </div>
+        <div v-if="checkoutMsg" class="text-sm text-green-600 mt-2">{{ checkoutMsg }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 頁面2：輪牌&房間 ===== -->
+  <div class="page" :class="{ active: currentPage === 'queue' }">
+    <!-- 輪牌順序 -->
+    <div class="bg-gray-800 text-white p-4 rounded-xl mb-6">
+      <h3 class="font-bold mb-2">🏆 輪牌順序</h3>
+      <div class="flex flex-wrap gap-2">
+        <div v-for="(s, idx) in waitingStaffs" :key="s.id" class="bg-white/10 px-3 py-1 rounded-full text-sm">
+          {{ idx+1 }}. {{ s.name }}
+          <span v-if="s.isLelai" class="text-purple-300 text-xs ml-1">(樂{{ s.staffNumber }})</span>
+          <span v-else class="text-blue-300 text-xs ml-1">(悠{{ s.staffNumber }})</span>
+          <span v-if="s.room" class="text-blue-300 text-xs ml-1">🚪{{ s.room }}</span>
+        </div>
+        <div v-if="waitingStaffs.length===0" class="text-white/50 text-sm">無待班技師</div>
+      </div>
+      <div v-if="standbyStaffs.length > 0" class="mt-2 border-t border-white/20 pt-2">
+        <span class="text-xs text-white/50">備牌：</span>
+        <span v-for="s in standbyStaffs" :key="s.id" class="text-xs text-white/70 ml-2">{{ s.name }}</span>
+      </div>
+    </div>
+
+    <!-- 房間狀態 -->
+    <div class="bg-white p-4 rounded-xl shadow mb-6">
+      <h3 class="font-bold mb-2">🚪 房間狀態</h3>
+      <div class="grid grid-cols-3 md:grid-cols-6 gap-2">
+        <div v-for="i in 6" :key="i" class="room-card" :class="{
+          'used': roomStatus[i] && roomStatus[i].status === '使用中',
+          'cleaning': roomStatus[i] && roomStatus[i].status === '打掃中',
+          'empty': roomStatus[i] && roomStatus[i].status === '空房'
+        }">
+          <div class="text-sm font-bold">{{ i }}號房</div>
+          <div class="text-xs" :class="{
+            'text-green-600': roomStatus[i]?.status === '空房',
+            'text-red-600': roomStatus[i]?.status === '使用中',
+            'text-yellow-600': roomStatus[i]?.status === '打掃中'
+          }">{{ roomStatus[i]?.status || '空房' }}</div>
+          <div v-if="roomStatus[i]?.currentUser" class="text-xs font-bold">{{ roomStatus[i].currentUser }}</div>
+          <div v-if="roomStatus[i]?.previousUser" class="text-xs text-gray-400">前: {{ roomStatus[i].previousUser }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 技師卡片 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div v-for="s in allActiveStaffs" :key="s.id" class="bg-white p-4 rounded-xl shadow border">
+        <div class="flex justify-between items-start">
+          <div>
+            <span class="text-lg font-bold">{{ s.name }}</span>
+            <span v-if="s.isLelai" class="lelai-tag">樂來</span>
+            <span v-else class="text-[10px] bg-blue-100 text-blue-800 px-1 rounded">悠樂</span>
+            <span class="staff-id">#{{ s.staffNumber }}</span>
+            <span class="status-badge ml-2" :class="{
+              'bg-green-100 text-green-700': s.status==='waiting',
+              'bg-yellow-100 text-yellow-700': s.status==='prep',
+              'bg-red-100 text-red-700': s.status==='timer',
+              'bg-gray-100 text-gray-500': s.status==='rest'
+            }">{{ getStatusText(s) }}</span>
+            <span v-if="s.room" class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded ml-1">🚪 {{ s.room }}號房</span>
+          </div>
+        </div>
+        <div v-if="s.currentService" class="mt-2 text-sm bg-gray-50 p-2 rounded">
+          服務中: {{ s.currentService.name }} ({{ s.currentService.duration }}分)
+        </div>
+        <div class="flex flex-wrap gap-2 mt-3">
+          <button v-if="s.status==='waiting'" @click="openMenu(s.id)" class="bg-amber-500 text-white px-3 py-1 rounded text-xs">結帳</button>
+          <button v-if="s.status==='prep'" @click="startTimer(s.id)" class="bg-blue-500 text-white px-3 py-1 rounded text-xs">開始</button>
+          <button v-if="s.status==='timer'" @click="finishTask(s.id)" class="bg-emerald-500 text-white px-3 py-1 rounded text-xs">完工</button>
+          <button v-if="s.status==='rest' || s.status==='standby'" @click="setWaiting(s.id)" class="bg-gray-700 text-white px-3 py-1 rounded text-xs">上班</button>
+          <button v-if="s.status==='waiting'" @click="setRest(s.id)" class="bg-gray-200 px-3 py-1 rounded text-xs">休息</button>
+          <button v-if="s.status==='timer'" @click="switchStaff(s.id)" class="bg-red-400 text-white px-3 py-1 rounded text-xs">換技師</button>
+          <button v-if="s.status==='timer'" @click="extendService(s.id)" class="bg-purple-500 text-white px-3 py-1 rounded text-xs">延長+10分</button>
+        </div>
+        <div v-if="s.penalty" class="text-red-500 text-xs mt-1">罰款累計: ¥{{ s.penalty }}</div>
+      </div>
+    </div>
+
+    <!-- 課程派工 -->
+    <div class="bg-white p-4 rounded-xl shadow mt-6">
+      <h3 class="font-bold mb-2">📋 課程派工</h3>
+      <div class="flex flex-col sm:flex-row gap-3 items-end">
+        <div class="flex-1">
+          <select v-model="selectedService" class="border p-2 rounded w-full">
+            <option v-for="svc in serviceCatalog" :key="svc.id" :value="svc">
+              {{ svc.name_zh }} ({{ svc.totalDuration }}分) ¥{{ svc.price }}
+            </option>
+          </select>
+        </div>
+        <div class="w-20">
+          <input type="number" v-model.number="guestCount" min="1" max="10" class="border p-2 rounded w-full" placeholder="人数">
+        </div>
+        <button @click="autoAssign" class="bg-blue-600 text-white px-6 py-2 rounded">依項目指派</button>
+        <button @click="assignWithDesignation" class="bg-purple-600 text-white px-6 py-2 rounded">指名指派</button>
+      </div>
+      <div v-if="assignResult" class="mt-3 text-sm border-t pt-2">{{ assignResult }}</div>
+    </div>
+  </div>
+
+  <!-- ===== 頁面3：技師資訊 ===== -->
+  <div class="page" :class="{ active: currentPage === 'staff' }">
+    <div class="bg-white p-4 rounded-xl shadow">
+      <h2 class="text-xl font-bold mb-4">👤 技師資訊</h2>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-100">
+            <tr><th class="p-2">技師</th><th class="p-2">編號</th><th class="p-2">指名率</th><th class="p-2">本月出勤</th><th class="p-2">口コミ累計</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="s in staffs" :key="s.id" class="border-b" :class="{'bg-purple-50': s.isLelai}">
+              <td class="p-2 font-bold">{{ s.name }} <span v-if="s.isLelai" class="lelai-tag">樂</span></td>
+              <td class="p-2 text-gray-500">{{ s.staffNumber }}</td>
+              <td class="p-2">{{ calcNamedRate(s) }}%</td>
+              <td class="p-2">{{ s.attendanceDays }} 天</td>
+              <td class="p-2">G:{{ s.reviewCounts.month.G }} H:{{ s.reviewCounts.month.H }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 頁面4：老闆後台 ===== -->
+  <div class="page" :class="{ active: currentPage === 'boss' }">
+    <div v-if="!bossAuthenticated" class="bg-white p-6 rounded-xl shadow text-center">
+      <h3 class="text-xl font-bold mb-4">🔒 老闆驗證</h3>
+      <input type="password" v-model="bossPassword" placeholder="請輸入密碼" class="border p-2 rounded w-48 text-center" @keyup.enter="verifyBoss">
+      <button @click="verifyBoss" class="bg-blue-600 text-white px-6 py-2 rounded ml-2">登入</button>
+      <div v-if="bossError" class="text-red-500 text-sm mt-2">密碼錯誤</div>
+    </div>
+    <div v-else>
+      <!-- 老闆後台內容（排班、報表、人員管理等） -->
+      <div class="bg-white p-4 rounded-xl shadow mb-6">
+        <h3 class="font-bold mb-2">📅 本週排班表</h3>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-xs">
+            <thead><tr class="bg-gray-100"><th class="p-2">技師</th><th v-for="d in weekDays" :key="d" class="p-2">{{ d }}</th></tr></thead>
+            <tbody>
+              <tr v-for="s in staffs" :key="s.id" class="border-b">
+                <td class="p-2 font-bold">{{ s.name }}</td>
+                <td v-for="d in weekDays" :key="d" class="p-2 text-center">{{ s.schedule[d] || '休' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 人員管理 -->
+      <div class="bg-white p-4 rounded-xl shadow">
+        <h3 class="font-bold mb-2">👥 人員管理</h3>
+        <div class="flex gap-2 mb-2">
+          <input v-model="newStaffName" placeholder="名稱" class="border p-2 rounded text-sm flex-1">
+          <input v-model="newStaffNumber" placeholder="編號" class="border p-2 rounded text-sm w-20">
+          <label class="flex items-center gap-1 text-sm"><input type="checkbox" v-model="newStaffIsLelai"> 樂來</label>
+          <button @click="addStaff" class="bg-green-600 text-white px-4 py-2 rounded text-sm">新增</button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <span v-for="s in staffs" :key="s.id" class="bg-gray-100 px-3 py-1 rounded-full text-sm flex items-center gap-2">
+            {{ s.name }} #{{ s.staffNumber }} <span v-if="s.isLelai" class="lelai-tag">樂</span>
+            <button @click="removeStaff(s.id)" class="text-red-400 text-xs">✕</button>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 結帳彈窗 ===== -->
+  <div v-if="showCheckoutModal" class="fixed inset-0 bg-black/50 flex items-center justify-center p-3 z-50">
+    <div class="bg-white rounded-2xl p-6 max-w-md w-full">
+      <h3 class="font-bold mb-2">結帳：{{ activeStaffName }}</h3>
+      <div class="text-2xl font-bold text-amber-600 mb-4">¥{{ checkoutTotal }}</div>
+      <div class="mb-2">
+        <label class="text-xs text-gray-500">收付人</label>
+        <select v-model="checkoutForm.checkoutBy" class="border p-2 rounded w-full">
+          <option v-for="p in availableCheckoutStaffs" :key="p.id" :value="p.name">{{ p.name }}</option>
+        </select>
+      </div>
+      <div class="mb-2">
+        <label class="text-xs text-gray-500">收款來源</label>
+        <select v-model="checkoutForm.paymentSource" class="border p-2 rounded w-full">
+          <option value="yuraku">悠樂收款</option>
+          <option value="lelai">樂來收款</option>
+        </select>
+      </div>
+      <div class="flex gap-2 mb-4">
+        <button v-for="pay in paymentMethods" :key="pay.name" @click="checkoutForm.payment=pay"
+                class="px-3 py-1 rounded border" :class="checkoutForm.payment.name===pay.name?'bg-blue-600 text-white':'bg-white'">
+          {{ pay.name }}
+        </button>
+      </div>
+      <div class="flex gap-3">
+        <button @click="showCheckoutModal=false" class="flex-1 bg-gray-200 py-2 rounded">取消</button>
+        <button @click="confirmCheckout" class="flex-1 bg-gray-800 text-white py-2 rounded font-bold">確認</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted } = Vue;
+
+// ===== 簡化 i18n =====
+const i18n = {
+  zh: { '課程點餐': '課程點餐', '輪牌&房間': '輪牌&房間', '技師資訊': '技師資訊', '老闆後台': '老闆後台' }
+};
+
+createApp({
+  setup() {
+    const lang = ref('zh');
+    const $t = (key) => i18n[lang.value][key] || key;
+    const menuLang = ref('zh');
+
+    // ===== 課程資料 =====
+    const serviceCatalog = ref([
+      { id: 'c1', name_zh: '機器+油推+60小顏 150分', name_en: 'Machine+Oil+60Face 150min', name_ja: 'マシン+オイル+60小顔 150分', totalDuration: 150, price: 18000, source: 'hotpepper' },
+      { id: 'l1', name_zh: 'A 睡眠不足の方に 80分', name_en: 'A Sleep Deprivation 80min', name_ja: 'A 睡眠不足の方に 80分', totalDuration: 80, price: 7000, source: 'lelai_instore' },
+    ]);
+
+    // ===== 技師資料 =====
+    const defaultSkills = () => {
+      const sk = {};
+      ['機器','油壓','指壓','足底','小顏','敷石膏'].forEach(s => sk[s]=true);
+      return sk;
+    };
+    const defaultSchedule = { '一':'早','二':'早','三':'早','四':'早','五':'早','六':'休','日':'休' };
+
+    const staffs = ref([
+      { id:1, name:'A師傅', staffNumber:'001', isLelai:false, shift:'早', expectedTime:'10:00', shiftEnd:'23:59', isLiveIn:true, lastTrain:null, status:'rest', queueOrder:0, queueTimestamp:0, groupTag:null, skills:defaultSkills(), schedule:{...defaultSchedule, '一':'住店'}, review:'', reviewCounts:{today:{G:0,H:0}, month:{G:0,H:0}}, penalty:0, penaltyLog:[], totalDeduction:0, currentService:null, serviceStartTimestamp:0, isOvertime:false, overtimeSeconds:0, overtimeDeduction:0, extendCharge:0, isLate:false, excusedLate:false, arrivalTimestamp:0, attendanceDays:0, totalServices:0, namedCount:0, eyeMaskSold:0, footCreamSold:0, prepStartTimestamp:0, outStartTimestamp:0, previousStatus:'rest', room:null, supportLelai:false, bringingGuest:false },
+      { id:2, name:'B師傅', staffNumber:'002', isLelai:false, shift:'早', expectedTime:'10:00', shiftEnd:'18:00', isLiveIn:false, lastTrain:'18:00', status:'rest', queueOrder:0, queueTimestamp:0, groupTag:null, skills:defaultSkills(), schedule:defaultSchedule, review:'', reviewCounts:{today:{G:0,H:0}, month:{G:0,H:0}}, penalty:0, penaltyLog:[], totalDeduction:0, currentService:null, serviceStartTimestamp:0, isOvertime:false, overtimeSeconds:0, overtimeDeduction:0, extendCharge:0, isLate:false, excusedLate:false, arrivalTimestamp:0, attendanceDays:0, totalServices:0, namedCount:0, eyeMaskSold:0, footCreamSold:0, prepStartTimestamp:0, outStartTimestamp:0, previousStatus:'rest', room:null, supportLelai:false, bringingGuest:false },
+    ]);
+
+    // ===== 房間狀態 =====
+    const roomStatus = ref({});
+    for (let i=1; i<=6; i++) roomStatus.value[i] = { status: '空房', currentUser: null, previousUser: null };
+
+    // ===== 狀態變數 =====
+    const currentPage = ref('queue');
+    const bossAuthenticated = ref(false);
+    const bossPassword = ref('');
+    const bossError = ref(false);
+    const selectedService = ref(null);
+    const addons = ref({ sheets:false, shimei:false, footCream:false, eyeMask:false });
+    const selectedPromo = ref('none');
+    const checkoutMsg = ref('');
+    const guestCount = ref(1);
+    const assignResult = ref('');
+    const weekDays = ['一','二','三','四','五','六','日'];
+    const newStaffName = ref('');
+    const newStaffNumber = ref('');
+    const newStaffIsLelai = ref(false);
+    const showCheckoutModal = ref(false);
+    const checkoutStaffId = ref(null);
+    const checkoutForm = ref({ payment: { name:'現金', fee:0 }, checkoutBy: '', paymentSource: 'yuraku' });
+    const checkoutTotal = ref(0);
+    const dailyLog = ref([]);
+    const totalCustomers = ref(0);
+    const totalRevenue = ref(0);
+
+    // ===== 計算屬性 =====
+    const waitingStaffs = computed(() => {
+      return staffs.value.filter(s => s.status === 'waiting').sort((a,b) => a.queueOrder - b.queueOrder);
+    });
+    const standbyStaffs = computed(() => staffs.value.filter(s => s.status === 'standby'));
+    const allActiveStaffs = computed(() => staffs.value.filter(s => s.status !== 'rest'));
+    const activeStaffName = computed(() => {
+      const s = staffs.value.find(x => x.id === checkoutStaffId.value);
+      return s ? s.name : '';
+    });
+    const availableCheckoutStaffs = computed(() => {
+      const list = staffs.value.filter(s => s.status !== 'rest');
+      return [{ id: 'manager', name: '店長' }, ...list.map(s => ({ id: s.id, name: s.name }))];
+    });
+    const calculatedTotal = computed(() => {
+      if (!selectedService.value) return 0;
+      let total = selectedService.value.price;
+      if (addons.value.sheets) total += 200;
+      if (addons.value.shimei) total += 200;
+      if (addons.value.footCream) total += 500;
+      if (addons.value.eyeMask) total += 300;
+      return total;
+    });
+
+    // ===== 輔助函數 =====
+    const formatTimer = (sec) => {
+      const s = Math.floor(sec || 0);
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return `${m}:${r.toString().padStart(2, '0')}`;
+    };
+    const getStatusText = (s) => {
+      if (s.status === 'waiting') return '🟢 待班';
+      if (s.status === 'prep') return '🟡 準備';
+      if (s.status === 'timer') return '🔴 療程中';
+      if (s.status === 'standby') return '🟡 備牌';
+      return '⚪ 休息';
+    };
+    const calcNamedRate = (s) => {
+      if (s.totalServices === 0) return '0';
+      return Math.round((s.namedCount / s.totalServices) * 100);
+    };
+
+    // ===== 功能函數 =====
+    const selectService = (svc) => { selectedService.value = svc; };
+    const openCustomCourse = () => {
+      const name = prompt('課程名稱');
+      if (!name) return;
+      const price = parseInt(prompt('價格'));
+      if (isNaN(price)) return;
+      const duration = parseInt(prompt('時長(分)'));
+      if (isNaN(duration)) return;
+      serviceCatalog.value.push({ id: 'c'+Date.now(), name_zh: name, name_en: name, name_ja: name, totalDuration: duration, price: price, source: 'custom' });
+    };
+
+    const openCheckoutFromMenu = () => {
+      if (!selectedService.value) return;
+      const head = waitingStaffs.value[0];
+      if (head) checkoutStaffId.value = head.id;
+      else { alert('沒有待班技師'); return; }
+      checkoutTotal.value = calculatedTotal.value;
+      checkoutForm.value = { payment: { name:'現金', fee:0 }, checkoutBy: activeStaffName.value || '', paymentSource: 'yuraku' };
+      showCheckoutModal.value = true;
+    };
+
+    const confirmCheckout = () => {
+      const s = staffs.value.find(x => x.id === checkoutStaffId.value);
+      if (!s) return;
+      const amount = checkoutTotal.value;
+      const fee = checkoutForm.value.payment.fee || 0;
+      const finalAmount = Math.round(amount * (1 + fee));
+      const isLelaiPayment = checkoutForm.value.paymentSource === 'lelai';
+      dailyLog.value.unshift({
+        id: Date.now(),
+        time: Date.now(),
+        payment: checkoutForm.value.payment.name,
+        checkoutBy: checkoutForm.value.checkoutBy || s.name,
+        paymentSource: checkoutForm.value.paymentSource,
+        amount: isLelaiPayment ? 0 : finalAmount,
+        isLelaiPayment,
+        participants: [{ staffId: s.id, staffName: s.name, serviceName: selectedService.value.name_zh }]
+      });
+      if (!isLelaiPayment) {
+        totalCustomers.value += 1;
+        totalRevenue.value += finalAmount;
+      }
+      s.totalServices += 1;
+      s.status = 'prep';
+      s.prepStartTimestamp = Date.now();
+      showCheckoutModal.value = false;
+      selectedService.value = null;
+      addons.value = { sheets:false, shimei:false, footCream:false, eyeMask:false };
+      selectedPromo.value = 'none';
+      checkoutMsg.value = `✅ 結帳成功 ${isLelaiPayment ? '(樂來收款)' : '¥'+finalAmount.toLocaleString()}`;
+      setTimeout(() => checkoutMsg.value = '', 3000);
+      // 房間指派
+      const room = prompt('請輸入房間號碼 (1-6)');
+      if (room && /^[1-6]$/.test(room)) {
+        const r = parseInt(room);
+        if (roomStatus.value[r].status === '空房') {
+          roomStatus.value[r].status = '使用中';
+          roomStatus.value[r].currentUser = s.name;
+          s.room = r;
+        }
+      }
+    };
+
+    const startTimer = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (s && s.currentService) {
+        s.status = 'timer';
+        s.serviceStartTimestamp = Date.now();
+        s.prepStartTimestamp = 0;
+      }
+    };
+
+    const finishTask = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s) return;
+      if (s.room) {
+        roomStatus.value[s.room].status = '打掃中';
+        roomStatus.value[s.room].previousUser = s.name;
+        roomStatus.value[s.room].currentUser = null;
+        s.room = null;
+      }
+      s.status = 'waiting';
+      s.queueTimestamp = Date.now();
+      const maxOrder = Math.max(...staffs.value.map(st => st.queueOrder || 0), 0);
+      s.queueOrder = maxOrder + 1;
+      s.currentService = null;
+      recalcQueue();
+    };
+
+    const switchStaff = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s || s.status !== 'timer') return;
+      if (s.room) {
+        roomStatus.value[s.room].status = '空房';
+        roomStatus.value[s.room].previousUser = s.name;
+        roomStatus.value[s.room].currentUser = null;
+        s.room = null;
+      }
+      s.status = 'waiting';
+      s.queueTimestamp = Date.now();
+      const maxOrder = Math.max(...staffs.value.map(st => st.queueOrder || 0), 0);
+      s.queueOrder = maxOrder + 1;
+      s.currentService = null;
+      recalcQueue();
+    };
+
+    const extendService = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s || s.status !== 'timer' || !s.currentService) return;
+      s.currentService.duration += 10;
+      s.extendCharge = (s.extendCharge || 0) + 1000;
+    };
+
+    const setWaiting = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s) return;
+      s.status = 'waiting';
+      s.queueTimestamp = Date.now();
+      const maxOrder = Math.max(...staffs.value.map(st => st.queueOrder || 0), 0);
+      s.queueOrder = maxOrder + 1;
+      recalcQueue();
+    };
+
+    const setRest = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (s) s.status = 'rest';
+    };
+
+    const openMenu = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s) return;
+      checkoutStaffId.value = id;
+      checkoutTotal.value = s.currentService?.price || 0;
+      checkoutForm.value = { payment: { name:'現金', fee:0 }, checkoutBy: s.name || '', paymentSource: 'yuraku' };
+      showCheckoutModal.value = true;
+    };
+
+    const autoAssign = () => {
+      const svc = selectedService.value;
+      if (!svc) { assignResult.value = '請選擇課程'; return; }
+      const count = guestCount.value || 1;
+      const waiting = staffs.value.filter(s => s.status === 'waiting').sort((a,b) => a.queueOrder - b.queueOrder);
+      if (waiting.length === 0) { assignResult.value = '沒有待班技師'; return; }
+      const assigned = [];
+      for (let i=0; i<Math.min(count, waiting.length); i++) {
+        const staff = waiting[i];
+        staff.status = 'timer';
+        staff.currentService = { name: svc.name_zh, duration: svc.totalDuration, price: svc.price };
+        staff.serviceStartTimestamp = Date.now();
+        assigned.push(staff.name);
+      }
+      assignResult.value = `✅ 指派給 ${assigned.join('、')}`;
+      recalcQueue();
+    };
+
+    const assignWithDesignation = () => {
+      const name = prompt('請輸入技師名稱');
+      if (!name) return;
+      const staff = staffs.value.find(s => s.name === name);
+      if (!staff) { assignResult.value = '找不到該技師'; return; }
+      if (staff.status !== 'waiting') { assignResult.value = '該技師不在待班中'; return; }
+      const svc = selectedService.value;
+      if (!svc) { assignResult.value = '請選擇課程'; return; }
+      staff.status = 'timer';
+      staff.currentService = { name: svc.name_zh, duration: svc.totalDuration, price: svc.price };
+      staff.serviceStartTimestamp = Date.now();
+      staff.namedCount += 1;
+      assignResult.value = `✅ 指派給 ${staff.name} (指名)`;
+      recalcQueue();
+    };
+
+    const addStaff = () => {
+      if (!newStaffName.value || !newStaffNumber.value) { alert('請輸入名稱與編號'); return; }
+      if (staffs.value.some(s => s.staffNumber === newStaffNumber.value)) { alert('編號已存在'); return; }
+      const id = Math.max(...staffs.value.map(s => s.id)) + 1;
+      staffs.value.push({
+        id, name: newStaffName.value, staffNumber: newStaffNumber.value, isLelai: newStaffIsLelai.value,
+        shift:'早', expectedTime:'10:00', shiftEnd:'18:00', isLiveIn:false, lastTrain:'18:00',
+        status:'rest', queueOrder:0, queueTimestamp:0, groupTag:null,
+        skills:defaultSkills(), schedule:defaultSchedule, review:'', reviewCounts:{today:{G:0,H:0}, month:{G:0,H:0}},
+        penalty:0, penaltyLog:[], totalDeduction:0, currentService:null, serviceStartTimestamp:0,
+        isOvertime:false, overtimeSeconds:0, overtimeDeduction:0, extendCharge:0,
+        isLate:false, excusedLate:false, arrivalTimestamp:0, attendanceDays:0, totalServices:0,
+        namedCount:0, eyeMaskSold:0, footCreamSold:0, prepStartTimestamp:0, outStartTimestamp:0, previousStatus:'rest', room:null,
+        supportLelai:false, bringingGuest:false
+      });
+      newStaffName.value = '';
+      newStaffNumber.value = '';
+      newStaffIsLelai.value = false;
+    };
+
+    const removeStaff = (id) => {
+      if (!confirm('確定刪除？')) return;
+      staffs.value = staffs.value.filter(s => s.id !== id);
+      recalcQueue();
+    };
+
+    function recalcQueue() {
+      const waiting = staffs.value.filter(s => s.status === 'waiting');
+      waiting.sort((a,b) => a.queueTimestamp - b.queueTimestamp);
+      waiting.forEach((s, idx) => s.queueOrder = idx + 1);
+    }
+
+    const enterBossMode = () => {
+      if (bossAuthenticated.value) currentPage.value = 'boss';
+      else { bossPassword.value = ''; bossError.value = false; currentPage.value = 'boss'; }
+    };
+    const verifyBoss = () => {
+      if (bossPassword.value === '0000') { bossAuthenticated.value = true; bossError.value = false; }
+      else bossError.value = true;
+    };
+
+    // 持久化（簡化）
+    function persistState() {
+      localStorage.setItem('pos_data', JSON.stringify({ staffs: staffs.value, roomStatus: roomStatus.value, dailyLog: dailyLog.value, totalCustomers: totalCustomers.value, totalRevenue: totalRevenue.value }));
+    }
+    function restoreState() {
+      const raw = localStorage.getItem('pos_data');
+      if (raw) {
+        try {
+          const data = JSON.parse(raw);
+          staffs.value = data.staffs;
+          roomStatus.value = data.roomStatus;
+          dailyLog.value = data.dailyLog || [];
+          totalCustomers.value = data.totalCustomers || 0;
+          totalRevenue.value = data.totalRevenue || 0;
+        } catch(e) {}
+      }
+    }
+
+    onMounted(() => {
+      restoreState();
+      setInterval(() => persistState(), 5000);
+    });
+
+    return {
+      lang, $t, menuLang, currentPage, bossAuthenticated, bossPassword, bossError,
+      serviceCatalog, staffs, roomStatus, selectedService, addons, selectedPromo,
+      checkoutMsg, guestCount, assignResult, weekDays,
+      newStaffName, newStaffNumber, newStaffIsLelai,
+      showCheckoutModal, checkoutStaffId, checkoutForm, checkoutTotal,
+      waitingStaffs, standbyStaffs, allActiveStaffs, activeStaffName, availableCheckoutStaffs,
+      calculatedTotal, dailyLog, totalCustomers, totalRevenue,
+      formatTimer, getStatusText, calcNamedRate,
+      selectService, openCustomCourse, openCheckoutFromMenu, confirmCheckout,
+      startTimer, finishTask, switchStaff, extendService,
+      setWaiting, setRest, openMenu,
+      autoAssign, assignWithDesignation,
+      addStaff, removeStaff,
+      enterBossMode, verifyBoss,
+      paymentMethods: [{ name:'現金', fee:0 }, { name:'PayPay', fee:0 }, { name:'刷卡', fee:0.05 }]
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
