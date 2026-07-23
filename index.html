@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>悠楽 POS 精簡版</title>
+  <!-- 使用國內 CDN 鏡像 -->
+  <script src="https://cdn.bootcdn.net/ajax/libs/vue/3.5.39/vue.global.prod.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    #app { padding: 20px; max-width: 600px; margin: 0 auto; }
+    .loading { text-align: center; padding: 50px; color: #999; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="loading">⏳ 載入中...</div>
+  </div>
+
+  <script>
+    // 全局錯誤捕獲
+    window.onerror = function(msg, url, line, col, error) {
+      document.querySelector('#app').innerHTML = `
+        <div style="color:red;padding:20px;border:1px solid red;border-radius:8px;">
+          <h3>❌ 錯誤</h3>
+          <pre>${msg}\n${error?.stack || ''}</pre>
+        </div>
+      `;
+      return true;
+    };
+
+    const { createApp, ref, computed } = Vue;
+
+    const app = createApp({
+      setup() {
+        const staffs = ref([
+          { id: 1, name: 'A 師傅', status: 'waiting' },
+          { id: 2, name: 'B 師傅', status: 'waiting' },
+        ]);
+
+        const waitingStaffs = computed(() => staffs.value.filter(s => s.status === 'waiting'));
+
+        return { staffs, waitingStaffs };
+      },
+      template: `
+        <div>
+          <h1 class="text-2xl font-bold mb-4">🏆 輪牌順序</h1>
+          <div v-if="waitingStaffs.length === 0">無待班技師</div>
+          <div v-for="(s, idx) in waitingStaffs" :key="s.id" class="p-2 border rounded mb-1">
+            {{ idx+1 }}. {{ s.name }}
+          </div>
+          <p class="text-sm text-gray-400 mt-4">✅ Vue 運作正常！</p>
+        </div>
+      `
+    });
+
+    app.mount('#app');
+  </script>
+</body>
+</html>
