@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>悠楽 HotPepper 完整クーポン精準POS系統 v5.4</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#f4f7f6] text-[#333] font-sans antialiased">
+    <div id="app" class="max-w-4xl mx-auto p-4 min-h-screen pb-16">
+      
+      <header class="flex flex-col sm:flex-row justify-between items-center mb-6 bg-white p-4 rounded-2xl shadow-sm border border-[#e2dedb] gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-[#2c3e50] mb-1">🇯🇵 悠楽 HotPepper 完整クーポン管理模組</h2>
+          <p class="text-[11px] text-[#7f8c8d]">嚴格對應 HotPepper 官方標準クーポン・多人同行客數正確連動</p>
+        </div>
+        <div class="flex gap-6 text-center">
+          <div>
+            <div class="text-[10px] text-[#7f8c8d] uppercase tracking-wider">今日客數</div>
+            <div class="text-xl font-bold text-[#2c3e50]">{{ totalCustomers }} <span class="text-xs font-normal text-gray-400">人</span></div>
+          </div>
+          <div class="border-l border-[#eee] pl-6">
+            <div class="text-[10px] text-[#7f8c8d] uppercase tracking-wider">今日營收</div>
+            <div class="text-xl font-bold text-[#d35400]">¥{{ totalRevenue.toLocaleString() }}</div>
+          </div>
+        </div>
+      </header>
+
+      <!-- 待班輪牌區 -->
+      <div class="bg-[#2c3e50] text-white p-4 rounded-2xl mb-6 shadow-lg">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-lg">🏆</span>
+          <h3 class="text-sm font-bold tracking-widest">目前待班輪牌順序 (5分緩衝機制)</h3>
+        </div>
+        <div class="flex gap-2 overflow-x-auto pb-2">
+          <div v-for="(s, index) in waitingStaffs" :key="s.id" 
+               class="bg-white/10 backdrop-blur-md border border-white/20 p-3 rounded-xl min-w-[110px] text-center relative">
+            <div class="absolute -top-2 -left-2 bg-amber-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold shadow-md">
+              {{ index + 1 }}
+            </div>
+            <div class="text-sm font-bold">{{ s.name }}</div>
+            <div v-if="s.groupTag" class="text-[9px] text-amber-300 mt-1 font-bold">{{ s.groupTag }}</div>
+          </div>
+          <div v-if="waitingStaffs.length === 0" class="text-white/40 text-sm py-2">目前尚無技師待班中</div>
+        </div>
+      </div>
+
+      <!-- 技師列表 -->
+      <div class="grid grid-cols-1 gap-3">
+        <div v-for="s in staffs" :key="s.id" 
+             class="bg-white border border-gray-200 p-4 rounded-2xl shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all"
+             :class="{'border-amber-400 bg-amber-50/30': s.status === 'prep', 'border-emerald-400': s.status === 'timer'}">
+          
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-lg font-bold text-[#2c3e50]">{{ s.name }}</span>
+              <span v-if="s.groupTag" class="bg-amber-100 text-amber-700 text-[10px] px-2 py-0.5 rounded font-bold border border-amber-200">
+                同組: {{ s.groupTag }}
+              </span>
+            </div>
+            <div class="flex flex-wrap gap-2 items-center">
+              <span class="text-xs font-medium px-3 py-1 rounded-full"
+                    :class="{
+                      'bg-gray-100 text-gray-500': s.status === 'rest',
+                      'bg-emerald-100 text-emerald-600': s.status === 'waiting',
+                      'bg-amber-100 text-amber-600': s.status === 'prep',
+                      'bg-orange-100 text-orange-600 animate-pulse': s.status === 'timer' && !s.isOvertime,
+                      'bg-red-500 text-white font-bold': s.isOvertime
+                    }">
+                {{ getStatusText(s) }}
+              </span>
+              <span v-if="s.currentService" class="text-[11px] text-blue-500 font-medium">
+                {{ s.currentService.name }} (¥{{ s.currentService.price.toLocaleString() }})
+              </span>
+            </div>
+          </div>
+
+          <div class="flex gap-2 w-full sm:w-auto">
+            <button v-if="s.status === 'waiting'" @click="openMenu(s.id)" class="flex-1 sm:flex-none bg-[#f39c12] text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm">櫃檯結帳</button>
+            <button v-if="s.status === 'prep'" @click="startTimer(s.id)" class="flex-1 sm:flex-none bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm">開始計時</button>
+            <button v-if="s.status === 'timer'" @click="finishTask(s.id)" class="flex-1 sm:flex-none bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm">完工</button>
+            <button v-if="s.status === 'rest'" @click="setWaiting(s.id)" class="bg-gray-800 text-white px-4 py-2 rounded-xl text-xs font-bold">上班</button>
+            <button v-if="s.status !== 'rest' && s.status !== 'timer'" @click="setRest(s.id)" class="bg-gray-200 text-gray-500 px-3 py-2 rounded-xl text-xs font-bold">休息</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 結帳彈跳視窗 -->
+      <div v-if="showModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 z-50 overflow-y-auto">
+        <div class="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl my-6 max-h-[95vh] overflow-y-auto relative">
+          
+          <div class="sticky top-0 z-10 bg-[#2c3e50] text-white p-4 rounded-2xl mb-6 shadow-inner flex justify-between items-center">
+            <div>
+              <div class="text-[10px] text-gray-400 mb-1">即時結算總金額 (含同行與額外加減)</div>
+              <div class="text-3xl font-black text-amber-400">¥{{ calculatedModalTotal.toLocaleString() }}</div>
+            </div>
+            <div class="text-right">
+              <span v-if="checkoutForm.isFreeOfCharge" class="bg-red-500 text-white text-[10px] px-2 py-1 rounded-md font-bold mb-1 block">免單</span>
+              <div class="text-xs font-bold">{{ checkoutForm.payment.name }}</div>
+            </div>
+          </div>
+
+          <h3 class="text-lg font-black text-gray-800 mb-4">結帳設定：{{ activeStaffName }}</h3>
+
+          <!-- 多人同行代付設定 -->
+          <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-3 mb-6">
+            <label class="flex items-center gap-3 cursor-pointer group">
+              <input type="checkbox" v-model="checkoutForm.isGroupSharedPayment" class="w-5 h-5 accent-blue-600">
+              <span class="text-sm font-bold text-blue-600">多人同行且由同組一人代付全部費用</span>
+            </label>
+            <div v-if="checkoutForm.isGroupSharedPayment" class="mt-3 grid grid-cols-2 gap-2 bg-white p-3 rounded-xl border border-blue-100">
+               <div class="col-span-2 text-[11px] font-bold text-blue-400 mb-1">請勾選同組其他技師（金額與客數將自動正確累加）：</div>
+               <label v-for="s in otherStaffs" :key="s.id" class="flex items-center gap-2 p-2 rounded-lg border cursor-pointer hover:bg-blue-50">
+                 <input type="checkbox" :value="s.id" v-model="checkoutForm.sharedWithStaffIds" class="w-4 h-4">
+                 <span class="text-xs font-bold text-gray-600">{{ s.name }}</span>
+               </label>
+            </div>
+          </div>
+
+          <!-- HotPepper 官方標準クーポン選擇區 -->
+          <div class="space-y-4 mb-6">
+            <div>
+              <label class="block text-xs font-black text-gray-400 mb-2 uppercase tracking-tighter">選擇 HotPepper 官方クーポン分類</label>
+              <div class="grid grid-cols-3 gap-2">
+                <button v-for="cat in ['手技/精油/指壓', '機器瘦身', '小顏/臉部']" :key="cat"
+                        @click="checkoutForm.hpCategory = cat; updateDefaultService(cat)"
+                        :class="checkoutForm.hpCategory === cat ? 'bg-amber-600 text-white shadow-md' : 'bg-gray-100 text-gray-500 border border-gray-200'"
+                        class="py-2.5 rounded-xl text-xs font-bold transition-all">
+                  {{ cat }}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-black text-gray-400 mb-2 uppercase tracking-tighter">選擇 HotPepper 標準クーポン項目與價格</label>
+              <select v-model="checkoutForm.selectedService" class="w-full bg-white border-2 border-gray-100 rounded-2xl p-3 text-sm font-bold focus:border-amber-400 outline-none">
+                <option v-for="item in currentHpMenuList" :value="item">{{ item.name }} ({{ item.duration }}分) - ¥{{ item.price.toLocaleString() }}</option>
+              </select>
+            </div>
+
+            <!-- 免費延長 10 分鐘選項 -->
+            <div v-if="canApplyFreeExtension" class="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
+               <label class="block text-xs font-black text-emerald-600 mb-2">🎁 此クーポン適用：免費延長 10 分鐘</label>
+               <div class="grid grid-cols-2 gap-3">
+                 <label class="flex items-center gap-2 bg-white p-2 rounded-xl border border-emerald-200 cursor-pointer">
+                   <input type="radio" :value="'manual'" v-model="checkoutForm.freeExtend" class="w-4 h-4 accent-emerald-500">
+                   <span class="text-[11px] font-bold">免費延長手技10分</span>
+                 </label>
+                 <label class="flex items-center gap-2 bg-white p-2 rounded-xl border border-emerald-200 cursor-pointer">
+                   <input type="radio" :value="'machine'" v-model="checkoutForm.freeExtend" class="w-4 h-4 accent-emerald-500">
+                   <span class="text-[11px] font-bold">免費延長機器10分</span>
+                 </label>
+                 <button @click="checkoutForm.freeExtend = null" class="col-span-2 text-[10px] text-gray-400 underline">取消選取</button>
+               </div>
+            </div>
+
+            <!-- HotPepper 專屬優惠折抵 -->
+            <div class="bg-amber-50 p-4 rounded-2xl border border-amber-100">
+              <label class="block text-xs font-black text-amber-600 mb-2">🏷️ HotPepper 專屬優惠折抵 (限擇一)</label>
+              <div class="space-y-2">
+                <label class="flex items-center gap-3 bg-white p-3 rounded-xl border border-amber-200 cursor-pointer">
+                  <input type="checkbox" v-model="checkoutForm.hpPairDiscount" class="w-4 h-4 accent-amber-500" @change="exclusiveDiscount('hpPairDiscount')">
+                  <span class="text-[11px] font-bold">平日ペア手技折扣 (依時長自動折抵 ¥500 ~ ¥2,500)</span>
+                </label>
+                <label class="flex items-center gap-3 bg-white p-3 rounded-xl border border-amber-200 cursor-pointer">
+                  <input type="checkbox" v-model="checkoutForm.hp7DaysReturn" class="w-4 h-4 accent-amber-500" @change="exclusiveDiscount('hp7DaysReturn')">
+                  <span class="text-[11px] font-bold">7日以内再來店 (折 ¥200 シーツ代)</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 附加費與免單 -->
+            <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100 grid grid-cols-2 gap-3">
+               <label class="flex items-center gap-2 cursor-pointer bg-white p-2 rounded-xl border border-gray-200">
+                 <input type="checkbox" v-model="checkoutForm.includeSheets" class="w-4 h-4 accent-gray-800">
+                 <span class="text-[11px] font-bold">床單費 ¥200</span>
+               </label>
+               <label class="flex items-center gap-2 cursor-pointer bg-white p-2 rounded-xl border border-gray-200">
+                 <input type="checkbox" v-model="checkoutForm.isShimei" class="w-4 h-4 accent-gray-800">
+                 <span class="text-[11px] font-bold">指名費 ¥200</span>
+               </label>
+               <label class="col-span-2 flex items-center gap-2 mt-1 bg-red-50 p-2 rounded-xl text-red-600 cursor-pointer">
+                 <input type="checkbox" v-model="checkoutForm.isFreeOfCharge" class="w-4 h-4 accent-red-500">
+                 <span class="text-[11px] font-black">免單 (訂單金額歸零)</span>
+               </label>
+            </div>
+
+            <!-- 支付方式 -->
+            <div class="space-y-4">
+              <label class="block text-xs font-black text-gray-400 uppercase tracking-tighter">支付方式</label>
+              <div class="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                <button v-for="pay in paymentMethods" :key="pay.name"
+                        @click="checkoutForm.payment = pay"
+                        :class="checkoutForm.payment.name === pay.name ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200'"
+                        class="py-2 rounded-xl text-[10px] font-black transition-all">
+                  {{ pay.name }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex gap-3 mt-8 border-t pt-6">
+            <button @click="showModal = false" class="flex-1 bg-gray-100 text-gray-400 py-3 rounded-2xl font-bold hover:bg-gray-200 transition-all">取消</button>
+            <button @click="confirmCheckout" class="flex-[2] bg-gray-800 text-white py-3 rounded-2xl font-black shadow-lg hover:bg-gray-900 transition-all">
+              確認結帳並進入準備狀態
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const staffs = ref([
+                    { id: 1, name: 'A 師傅 (Aki)', status: 'waiting', queueOrder: 1, finishTimestamp: 0, groupTag: null, timer: 0, isOvertime: false, currentService: null },
+                    { id: 2, name: 'B 師傅 (Hana)', status: 'waiting', queueOrder: 2, finishTimestamp: 0, groupTag: null, timer: 0, isOvertime: false, currentService: null },
+                    { id: 3, name: 'C 師傅 (Yuki)', status: 'waiting', queueOrder: 3, finishTimestamp: 0, groupTag: null, timer: 0, isOvertime: false, currentService: null },
+                    { id: 4, name: 'D 師傅 (Ken)', status: 'waiting', queueOrder: 4, finishTimestamp: 0, groupTag: null, timer: 0, isOvertime: false, currentService: null }
+                ]);
+
+                const totalCustomers = ref(0);
+                const totalRevenue = ref(0);
+                const showModal = ref(false);
+                const selectingStaffId = ref(null);
+
+                // 嚴格對應 HotPepper 官方標準クーポン清單
+                const hpBodyMenu = [
+                    { name: "【平日限定】全身もみほぐし 60分", duration: 60, price: 3980 },
+                    { name: "【歩き疲れSOS】足裏×指壓 60分", duration: 60, price: 4980 },
+                    { name: "首肩こり＆腳むくみ撃退 60分", duration: 60, price: 4980 },
+                    { name: "【18種精油】全身リンパ＋頭 60分", duration: 60, price: 4980 },
+                    { name: "【PC疲れ】首肩・肩甲骨×足裏 75分", duration: 75, price: 5980 },
+                    { name: "【仕事疲れ】リンパ×足裏×頭 75分", duration: 75, price: 5980 },
+                    { name: "【腸セラピー】全身アロマ 90分", duration: 90, price: 7980 },
+                    { name: "寢落ち率90%★全身アロマ 90分", duration: 90, price: 7980 },
+                    { name: "【ペア限定】全身アロマリンパ 110分", duration: 110, price: 19980 },
+                    { name: "【台灣本場】ほぐし+足裏+頭 120分", duration: 120, price: 10980 },
+                    { name: "【限界疲れ】深層指壓×リンパ 120分", duration: 120, price: 10980 },
+                    { name: "【360°爆睡】全身リンパ 120分", duration: 120, price: 10980 },
+                    { name: "【慢性疲勞】全身360°＋足裏 150分", duration: 150, price: 13980 }
+                ];
+
+                const hpMachineMenu = [
+                    { name: "【火水限定】腳むくみ 60分", duration: 60, price: 4580 },
+                    { name: "【後面美】正規ハイパー 60分", duration: 60, price: 7980 },
+                    { name: "【發汗！スリム造形】100分", duration: 100, price: 9800, canExtend: true },
+                    { name: "【薄著前肉集中撃退】90分", duration: 90, price: 11000, canExtend: true },
+                    { name: "【ズボンゆるくなる脂肪分解】90分", duration: 90, price: 11980, canExtend: true },
+                    { name: "【本氣瘦せ】全身脂肪撃退 150分", duration: 150, price: 17980 }
+                ];
+
+                const hpFacialMenu = [
+                    { name: "【顏小さ】ハイパー顏コリ 60分", duration: 60, price: 6980 },
+                    { name: "【顏パンパン】小顏速攻 70分", duration: 70, price: 8980, canExtend: true },
+                    { name: "【老け顏】ライン對策 100分", duration: 100, price: 10980 },
+                    { name: "【まとめてスッキリ】首肩コリ 120分", duration: 120, price: 13980, canExtend: true }
+                ];
+
+                const paymentMethods = [
+                    { name: '現金', fee: 0 },
+                    { name: 'PayPay', fee: 0 },
+                    { name: '刷卡', fee: 0.05 },
+                    { name: '支付寶', fee: 0 },
+                    { name: '微信支付', fee: 0 }
+                ];
+
+                const checkoutForm = ref({
+                    hpCategory: '手技/精油/指壓',
+                    selectedService: hpBodyMenu[0],
+                    freeExtend: null,
+                    hpPairDiscount: false,
+                    hp7DaysReturn: false,
+                    includeSheets: false, 
+                    isShimei: false,
+                    isFreeOfCharge: false,
+                    isGroupSharedPayment: false,
+                    sharedWithStaffIds: [],
+                    payment: paymentMethods[0]
+                });
+
+                const currentHpMenuList = computed(() => {
+                    if (checkoutForm.value.hpCategory === '手技/精油/指壓') return hpBodyMenu;
+                    if (checkoutForm.value.hpCategory === '機器瘦身') return hpMachineMenu;
+                    return hpFacialMenu;
+                });
+
+                const updateDefaultService = (cat) => {
+                    if (cat === '手技/精油/指壓') checkoutForm.value.selectedService = hpBodyMenu[0];
+                    else if (cat === '機器瘦身') checkoutForm.value.selectedService = hpMachineMenu[0];
+                    else checkoutForm.value.selectedService = hpFacialMenu[0];
+                    checkoutForm.value.freeExtend = null;
+                };
+
+                const canApplyFreeExtension = computed(() => checkoutForm.value.selectedService?.canExtend);
+
+                const waitingStaffs = computed(() => {
+                    return staffs.value
+                        .filter(s => s.status === 'waiting')
+                        .sort((a, b) => {
+                            if (a.finishTimestamp && b.finishTimestamp) {
+                                const diffMin = Math.abs(a.finishTimestamp - b.finishTimestamp) / (1000 * 60);
+                                if (diffMin <= 5) return a.queueOrder - b.queueOrder;
+                            }
+                            return (a.finishTimestamp - b.finishTimestamp) || (a.queueOrder - b.queueOrder);
+                        });
+                });
+
+                // 精準金額計算
+                const calculatedModalTotal = computed(() => {
+                    if (checkoutForm.value.isFreeOfCharge) return 0;
+                    
+                    let total = checkoutForm.value.selectedService.price;
+                    const dur = checkoutForm.value.selectedService.duration;
+
+                    if (checkoutForm.value.hpPairDiscount) {
+                        if (dur >= 150) total -= 2500;
+                        else if (dur >= 120) total -= 1500;
+                        else if (dur >= 90) total -= 1000;
+                        else if (dur >= 75) total -= 500;
+                    }
+                    if (checkoutForm.value.hp7DaysReturn) total -= 200;
+                    if (checkoutForm.value.includeSheets) total += 200;
+                    if (checkoutForm.value.isShimei) total += 200;
+
+                    // 多人同行代付金額累加
+                    if (checkoutForm.value.isGroupSharedPayment && checkoutForm.value.sharedWithStaffIds.length > 0) {
+                        checkoutForm.value.sharedWithStaffIds.forEach(id => {
+                            const target = staffs.value.find(s => s.id === id);
+                            if (target?.currentService) {
+                                total += target.currentService.price;
+                            }
+                        });
+                    }
+
+                    if (checkoutForm.value.payment.fee > 0) {
+                        total = Math.round(total * (1 + checkoutForm.value.payment.fee));
+                    }
+                    return total < 0 ? 0 : total;
+                });
+
+                const otherStaffs = computed(() => staffs.value.filter(s => s.id !== selectingStaffId.value));
+                const activeStaffName = computed(() => staffs.value.find(s => s.id === selectingStaffId.value)?.name);
+
+                const exclusiveDiscount = (type) => {
+                    if (type === 'hpPairDiscount') checkoutForm.value.hp7DaysReturn = false;
+                    if (type === 'hp7DaysReturn') checkoutForm.value.hpPairDiscount = false;
+                };
+
+                const openMenu = (id) => {
+                    selectingStaffId.value = id;
+                    checkoutForm.value = {
+                        hpCategory: '手技/精油/指壓',
+                        selectedService: hpBodyMenu[0],
+                        freeExtend: null,
+                        hpPairDiscount: false,
+                        hp7DaysReturn: false,
+                        includeSheets: false,
+                        isShimei: false,
+                        isFreeOfCharge: false,
+                        isGroupSharedPayment: false,
+                        sharedWithStaffIds: [],
+                        payment: paymentMethods[0]
+                    };
+                    showModal.value = true;
+                };
+
+                const confirmCheckout = () => {
+                    const staff = staffs.value.find(s => s.id === selectingStaffId.value);
+                    if (!staff) return;
+
+                    const finalPrice = calculatedModalTotal.value;
+                    let addDuration = checkoutForm.value.selectedService.duration;
+                    if (checkoutForm.value.freeExtend) addDuration += 10;
+
+                    let gTag = staff.groupTag;
+                    if (checkoutForm.value.isGroupSharedPayment && checkoutForm.value.sharedWithStaffIds.length > 0) {
+                        gTag = gTag || 'G-' + Math.floor(Math.random() * 899 + 100);
+                        staff.groupTag = gTag;
+                        checkoutForm.value.sharedWithStaffIds.forEach(tid => {
+                            const ts = staffs.value.find(s => s.id === tid);
+                            if (ts) ts.groupTag = gTag;
+                        });
+                    }
+
+                    staff.status = 'prep';
+                    staff.isOvertime = false;
+                    staff.currentService = {
+                        name: `[HotPepper] ${checkoutForm.value.selectedService.name}`,
+                        price: checkoutForm.value.selectedService.price,
+                        duration: addDuration
+                    };
+
+                    // 客數正確連動：主結帳者 1 人 + 被勾選代付的同行人數
+                    const extraCount = (checkoutForm.value.isGroupSharedPayment ? checkoutForm.value.sharedWithStaffIds.length : 0);
+                    totalCustomers.value += (1 + extraCount);
+                    totalRevenue.value += finalPrice;
+                    showModal.value = false;
+                };
+
+                const startTimer = (id) => {
+                    const s = staffs.value.find(item => item.id === id);
+                    if (s?.currentService) {
+                        s.status = 'timer';
+                        s.timer = s.currentService.duration * 60;
+                    }
+                };
+
+                const finishTask = (id) => {
+                    const s = staffs.value.find(item => item.id === id);
+                    if (s) {
+                        s.status = 'waiting';
+                        s.finishTimestamp = Date.now();
+                        const max = Math.max(...staffs.value.map(x => x.queueOrder || 0));
+                        s.queueOrder = max + 1;
+                        s.timer = 0;
+                        s.isOvertime = false;
+                        s.currentService = null;
+                        const team = staffs.value.filter(x => x.groupTag === s.groupTag);
+                        if (team.every(x => x.status === 'waiting' || x.status === 'rest')) {
+                            team.forEach(x => x.groupTag = null);
+                        }
+                    }
+                };
+
+                const getStatusText = (s) => {
+                    if (s.status === 'waiting') return '🟢 待班中';
+                    if (s.status === 'prep') return '🟡 房內準備';
+                    if (s.status === 'timer') return s.isOvertime ? '🚨 超時' : `🔴 療程中 ${Math.floor(s.timer/60)}m`;
+                    return '⚪ 休息中';
+                };
+
+                const setRest = (id) => staffs.value.find(s => s.id === id).status = 'rest';
+                const setWaiting = (id) => staffs.value.find(s => s.id === id).status = 'waiting';
+
+                onMounted(() => {
+                    setInterval(() => {
+                        staffs.value.forEach(s => {
+                            if (s.status === 'timer') {
+                                if (s.timer > 0) s.timer--;
+                                else s.isOvertime = true;
+                            }
+                        });
+                    }, 1000);
+                });
+
+                return {
+                    staffs, showModal, currentHpMenuList, paymentMethods, checkoutForm,
+                    activeStaffName, otherStaffs, totalCustomers, totalRevenue, calculatedModalTotal,
+                    waitingStaffs, canApplyFreeExtension,
+                    openMenu, updateDefaultService, confirmCheckout, startTimer, finishTask, setRest, setWaiting, 
+                    exclusiveDiscount, getStatusText
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
