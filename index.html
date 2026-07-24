@@ -1,0 +1,2796 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>悠楽 POS 終極強化版</title>
+  <!-- Vue 3 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.5.39/vue.global.js"></script>
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js 用於圖表 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- SheetJS 用於匯出 Excel -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    .nav-btn { padding: 8px 16px; border-radius: 12px; font-size: 14px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+    .nav-btn.active { background: #2c3e50; color: white; }
+    .nav-btn.inactive { background: #e5e7eb; color: #6b7280; }
+    .nav-btn.inactive:hover { background: #d1d5db; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .status-badge { padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+    .lang-btn { background: #eee; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; }
+    .lang-btn.active { background: #2c3e50; color: white; }
+    .skill-tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; margin: 2px; background: #e2e8f0; cursor: pointer; }
+    .skill-tag.selected { background: #93c5fd; color: #1e3a8a; }
+    .room-card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px; text-align: center; background: #f9fafb; transition: all 0.2s; }
+    .room-card.used { background: #fef2f2; border-color: #fca5a5; }
+    .room-card.cleaning { background: #fffbeb; border-color: #fcd34d; }
+    .room-card.empty { background: #f0fdf4; border-color: #86efac; }
+    .room-card .status-btn { font-size: 10px; padding: 2px 8px; border-radius: 12px; cursor: pointer; border: none; }
+    .room-card .status-btn.green { background: #dcfce7; color: #166534; }
+    .room-card .status-btn.yellow { background: #fef9c3; color: #854d0e; }
+    .room-card .status-btn:hover { opacity: 0.7; }
+    .prep-warning { animation: blink 1s infinite; }
+    @keyframes blink { 0%{opacity:1;} 50%{opacity:0.3;} 100%{opacity:1;} }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
+    .modal-box { background: white; border-radius: 16px; padding: 24px; max-width: 540px; width: 100%; max-height: 90vh; overflow-y: auto; }
+    .filter-btn { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; border: 1px solid #d1d5db; }
+    .filter-btn.active { background: #2c3e50; color: white; border-color: #2c3e50; }
+    .filter-btn.inactive { background: white; color: #6b7280; }
+    .filter-btn.inactive:hover { background: #f3f4f6; }
+    .source-tag { font-size: 8px; padding: 0 6px; border-radius: 12px; font-weight: bold; }
+    .source-tag.hotpepper { background: #f97316; color: white; }
+    .source-tag.instore { background: #3b82f6; color: white; }
+    .source-tag.enet { background: #8b5cf6; color: white; }
+    .source-tag.lelai_instore { background: #a855f7; color: white; }
+    .source-tag.lelai_coupon { background: #ec4899; color: white; }
+    .clock { font-size: 14px; font-weight: bold; color: #2c3e50; background: #f1f5f9; padding: 4px 12px; border-radius: 20px; }
+    .duty-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #f1f5f9; margin: 2px; }
+    .special-day { font-weight: bold; font-size: 12px; }
+    .special-day.recycle { color: #059669; }
+    .special-day.no-trash { color: #dc2626; }
+    .duty-cell { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 9px; display: inline-block; margin: 1px; }
+    .schedule-cell { display: inline-block; width: 28px; text-align: center; font-size: 11px; padding: 2px; border-radius: 4px; margin: 1px; }
+    .schedule-cell.work { background: #dbeafe; color: #1e3a8a; }
+    .schedule-cell.rest { background: #f3f4f6; color: #6b7280; }
+    .schedule-cell.live { background: #d1fae5; color: #065f46; }
+    .staff-number { font-size: 22px; font-weight: bold; }
+    .staff-livein { background: #d1fae5; color: #065f46; font-size: 10px; padding: 0 6px; border-radius: 4px; }
+    .staff-train { font-size: 11px; color: #6b7280; }
+    .course-image { width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; background: #f3f4f6; }
+    .course-card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; transition: all 0.2s; cursor: pointer; }
+    .course-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); transform: translateY(-2px); }
+    .upload-btn { display: inline-block; background: #3b82f6; color: white; padding: 2px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; border: none; }
+    .upload-btn:hover { background: #2563eb; }
+    .preview-img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; }
+    .jcb-warning { color: #dc2626; font-size: 11px; font-weight: bold; margin-top: 2px; }
+    .promo-tag { font-size: 9px; background: #fef3c7; color: #92400e; padding: 0 4px; border-radius: 3px; margin-left: 2px; }
+    .extend-tag { font-size: 9px; background: #dbeafe; color: #1e3a8a; padding: 0 4px; border-radius: 3px; margin-left: 2px; }
+    .countdown { font-weight: bold; font-size: 16px; color: #2563eb; }
+    .countdown.overtime { color: #dc2626; animation: blink 1s infinite; }
+    .checkout-detail { font-size: 12px; color: #4b5563; border-top: 1px solid #e5e7eb; padding-top: 6px; margin-top: 6px; }
+    .checkout-detail .row { display: flex; justify-content: space-between; }
+    .waive-checkbox { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+    .reason-option { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; cursor: pointer; font-size: 13px; }
+    .reason-option.selected { border-color: #2c3e50; background: #f8fafc; font-weight: bold; }
+    .quick-btn { padding: 6px 14px; border-radius: 8px; background: #f1f5f9; font-size: 13px; cursor: pointer; border: none; }
+    .quick-btn.selected { background: #2c3e50; color: white; }
+    .room-select-btn { padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; cursor: pointer; text-align: center; background: white; font-size: 12px; }
+    .room-select-btn:hover { background: #f8fafc; }
+    .room-select-btn.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+    .pending-task { background: #fff7ed; border: 1px solid #fdba74; border-radius: 8px; padding: 8px; }
+    .log-table th, .log-table td { text-align: left; padding: 4px 6px; font-size: 11px; }
+    .chart-container { position: relative; height: 200px; width: 100%; }
+    .logout-btn { background: #dc2626; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: none; }
+    .logout-btn:hover { background: #b91c1c; }
+    .inventory-low { color: #dc2626; font-weight: bold; }
+    .tab-btn { padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; border: 1px solid #ddd; }
+    .tab-btn.active { background: #2c3e50; color: white; border-color: #2c3e50; }
+    .tab-btn.inactive { background: white; color: #333; }
+    .tab-btn.inactive:hover { background: #f3f4f6; }
+    .reservation-card { border-left: 4px solid #3b82f6; padding: 8px 12px; background: #f8fafc; margin-bottom: 6px; border-radius: 4px; }
+    .member-badge { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-size: 11px; }
+    .audit-log { font-family: monospace; font-size: 11px; background: #f3f4f6; padding: 8px; border-radius: 4px; max-height: 200px; overflow-y: auto; }
+    #error-box { background: #fee; color: #c00; padding: 15px; margin: 15px; border: 2px solid red; border-radius: 8px; display: none; }
+    #error-box pre { white-space: pre-wrap; word-break: break-all; font-size: 12px; }
+    .reset-btn { background: #dc2626; color: white; padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; }
+    .reset-btn:hover { background: #b91c1c; }
+  </style>
+</head>
+<body>
+
+<div id="error-box">
+  <h3>⚠️ 應用程式錯誤</h3>
+  <pre id="error-message"></pre>
+  <button class="reset-btn" onclick="if(confirm('⚠️ 此動作將清除本機瀏覽器內「所有」分店的資料（技師、交易紀錄、課程、會員、庫存等），且無法復原。\n\n建議先透過「資料備份」功能匯出備份再繼續。\n\n確定要清除所有資料嗎？')){ if(confirm('請再次確認：真的要清除全部資料嗎？此操作無法復原！')){ localStorage.clear(); location.reload(); } }">清除資料並重新整理</button>
+</div>
+
+<div id="app" class="max-w-6xl mx-auto p-4">
+
+  <!-- 頂部導航 -->
+  <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
+    <div class="flex flex-wrap gap-2 items-center">
+      <button class="lang-btn" :class="{ active: lang === 'zh' }" @click="lang='zh'">中文</button>
+      <button class="lang-btn" :class="{ active: lang === 'en' }" @click="lang='en'">English</button>
+      <button class="lang-btn" :class="{ active: lang === 'ja' }" @click="lang='ja'">日本語</button>
+      <span class="clock ml-2">🕒 {{ currentDateTime }}</span>
+      <span v-if="todayHoliday" class="ml-2 text-red-500 font-bold">🔴 {{ todayHoliday }}</span>
+      <!-- 多分店切換 -->
+      <select v-model="currentBranch" @change="switchBranch" class="border rounded p-1 text-sm ml-2">
+        <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
+      </select>
+    </div>
+    <div class="flex gap-2 items-center">
+      <span v-if="currentPage === 'boss'" class="text-xs text-amber-600 font-bold">👑 老闆模式</span>
+      <button v-if="bossAuthenticated" class="logout-btn" @click="logout">登出</button>
+    </div>
+  </div>
+
+  <!-- 頁面切換 -->
+  <div class="flex flex-wrap gap-2 mb-6 overflow-x-auto pb-2">
+    <button class="nav-btn" :class="currentPage === 'menu' ? 'active' : 'inactive'" @click="currentPage='menu'">📋 課程點餐</button>
+    <button class="nav-btn" :class="currentPage === 'queue' ? 'active' : 'inactive'" @click="currentPage='queue'">🔄 輪牌&房間</button>
+    <button class="nav-btn" :class="currentPage === 'staff' ? 'active' : 'inactive'" @click="currentPage='staff'">👤 技師資訊</button>
+    <button class="nav-btn" :class="currentPage === 'boss' ? 'active' : 'inactive'" @click="enterBossMode">👑 老闆後台</button>
+    <button class="nav-btn" :class="currentPage === 'reservations' ? 'active' : 'inactive'" @click="currentPage='reservations'">📅 預約管理</button>
+    <button class="nav-btn" :class="currentPage === 'members' ? 'active' : 'inactive'" @click="currentPage='members'">👥 會員點數</button>
+    <button class="nav-btn" :class="currentPage === 'inventory' ? 'active' : 'inactive'" @click="currentPage='inventory'">📦 庫存管理</button>
+  </div>
+
+  <!-- ===== 頁面1：課程點餐 ===== -->
+  <div class="page" :class="{ active: currentPage === 'menu' }">
+    <div class="bg-white p-4 rounded-xl shadow">
+      <h2 class="text-xl font-bold mb-4">📋 課程選擇</h2>
+      <div class="flex gap-2 mb-3">
+        <button @click="menuLang='zh'" class="text-xs px-3 py-1 rounded" :class="menuLang==='zh'?'bg-blue-600 text-white':'bg-gray-200'">中文</button>
+        <button @click="menuLang='en'" class="text-xs px-3 py-1 rounded" :class="menuLang==='en'?'bg-blue-600 text-white':'bg-gray-200'">English</button>
+        <button @click="menuLang='ja'" class="text-xs px-3 py-1 rounded" :class="menuLang==='ja'?'bg-blue-600 text-white':'bg-gray-200'">日本語</button>
+      </div>
+      <div class="flex flex-wrap gap-2 mb-4">
+        <button class="filter-btn" :class="filterSource === 'all' ? 'active' : 'inactive'" @click="filterSource='all'">全部</button>
+        <button class="filter-btn" :class="filterSource === 'instore' ? 'active' : 'inactive'" @click="filterSource='instore'">悠樂店內</button>
+        <button class="filter-btn" :class="filterSource === 'hotpepper' ? 'active' : 'inactive'" @click="filterSource='hotpepper'">HotPepper</button>
+        <button class="filter-btn" :class="filterSource === 'enet' ? 'active' : 'inactive'" @click="filterSource='enet'">e網</button>
+        <button class="filter-btn" :class="filterSource === 'lelai_instore' ? 'active' : 'inactive'" @click="filterSource='lelai_instore'">樂來店內</button>
+        <button class="filter-btn" :class="filterSource === 'lelai_coupon' ? 'active' : 'inactive'" @click="filterSource='lelai_coupon'">樂來クーポン</button>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+        <div v-for="svc in filteredCourses" :key="svc.id" class="course-card" @click="selectService(svc)">
+          <img v-if="svc.imageData" :src="svc.imageData" class="course-image">
+          <img v-else-if="svc.image" :src="svc.image" class="course-image" @error="svc.image = null">
+          <div v-else class="course-image bg-gray-200 flex items-center justify-center text-gray-400 text-xs">無圖片</div>
+          <div class="font-bold text-sm">{{ svc[`name_${menuLang}`] }}</div>
+          <div class="text-xs text-gray-500">{{ svc.totalDuration }} 分</div>
+          <div class="text-lg font-bold text-amber-600">¥{{ svc.price.toLocaleString() }}</div>
+          <div class="flex flex-wrap gap-1">
+            <span class="source-tag" :class="{
+              'hotpepper': svc.source === 'hotpepper',
+              'instore': svc.source === 'instore',
+              'enet': svc.source === 'enet',
+              'lelai_instore': svc.source === 'lelai_instore',
+              'lelai_coupon': svc.source === 'lelai_coupon'
+            }">{{ getSourceLabel(svc.source) }}</span>
+            <span v-if="svc.pairDiscount && svc.pairDiscount > 0" class="promo-tag">ペア割引 ¥{{ svc.pairDiscount }}</span>
+            <span v-if="svc.extendOption && svc.extendOption !== '無'" class="extend-tag">平日延長：{{ svc.extendOption }}</span>
+          </div>
+        </div>
+        <div class="border border-dashed rounded-xl p-3 hover:shadow-md cursor-pointer flex items-center justify-center" @click="openCustomCourse">
+          <span class="text-gray-400">＋ 自訂課程</span>
+        </div>
+      </div>
+      <div v-if="selectedService" class="border-t pt-4 mt-2">
+        <div class="flex justify-between items-center">
+          <div><span class="font-bold">{{ selectedService[`name_${menuLang}`] }}</span><span class="text-sm ml-2">¥{{ selectedService.price }}</span></div>
+          <button @click="selectedService=null" class="text-red-400 text-xs">✕</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mt-2 text-sm">
+          <label><input type="checkbox" v-model="addons.sheets"> 床單 ¥200</label>
+          <label><input type="checkbox" v-model="addons.shimei"> 指名 ¥200</label>
+          <label><input type="checkbox" v-model="addons.footCream"> 腳膏 ¥500</label>
+          <label><input type="checkbox" v-model="addons.eyeMask"> 熱敷眼罩 ¥300</label>
+        </div>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <select v-model="selectedPromo" class="border rounded p-1 text-xs">
+            <option value="none">無優惠</option>
+            <option v-if="selectedService.pairDiscount && selectedService.pairDiscount > 0" value="pair">ペア割引 -¥{{ selectedService.pairDiscount }}</option>
+            <option value="sevenDay">7日再來店</option>
+            <option value="member">會員點數折抵</option>
+            <option value="scratch">刮刮卡</option>
+          </select>
+          <span v-if="selectedPromo !== 'none'" class="text-xs text-green-600">優惠已套用</span>
+        </div>
+        <div class="mt-3 flex justify-between items-center">
+          <div class="text-xl font-bold text-amber-600">¥{{ calculatedTotal }}</div>
+          <button @click="openCheckoutFromMenu" class="bg-gray-800 text-white px-6 py-2 rounded-xl font-bold">結帳</button>
+        </div>
+        <div v-if="checkoutMsg" class="text-sm text-green-600 mt-2">{{ checkoutMsg }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 頁面2：輪牌&房間 ===== -->
+  <div class="page" :class="{ active: currentPage === 'queue' }">
+    <!-- 本週排班表 -->
+    <div class="bg-white p-4 rounded-xl shadow mb-6">
+      <h3 class="font-bold mb-2">📅 本週排班表</h3>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-xs">
+          <thead><tr class="bg-gray-100"><th class="p-2">技師</th><th v-for="d in weekDays" :key="d" class="p-2">{{ d }}</th></tr></thead>
+          <tbody>
+            <tr v-for="s in staffs" :key="s.id" class="border-b">
+              <td class="p-2 font-bold">{{ s.staffNumber }}{{ s.isLelai ? '樂' : '' }}</td>
+              <td v-for="d in weekDays" :key="d" class="p-2 text-center">
+                <span class="schedule-cell" :class="{
+                  'work': s.schedule[d]==='早' || s.schedule[d]==='晚',
+                  'rest': s.schedule[d]==='休',
+                  'live': s.schedule[d]==='住店'
+                }">{{ s.schedule[d] }}</span>
+                <span v-if="dutyClean[d] === s.id" class="duty-cell">🧹</span>
+                <span v-if="dutyMachine[d] === s.id" class="duty-cell">🧽</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="mt-2 flex gap-4 text-xs">
+        <span class="special-day recycle">♻️ 週三：回收日</span>
+        <span class="special-day no-trash">🚫 週六：不可扔垃圾</span>
+        <span v-if="todayHoliday" class="text-red-500">🔴 今日紅日子：{{ todayHoliday }}</span>
+      </div>
+    </div>
+
+    <!-- 今日值日 -->
+    <div class="bg-white p-4 rounded-xl shadow mb-6">
+      <div class="flex flex-wrap items-center justify-between">
+        <div>
+          <span class="text-sm font-bold">🧹 今日值日</span>
+          <span class="duty-badge" v-if="todayDuty.clean">🧹 拖地&倒垃圾：{{ todayDuty.clean }}</span>
+          <span class="duty-badge" v-if="todayDuty.machine">🧽 擦機器&洗拖鞋：{{ todayDuty.machine }}</span>
+        </div>
+        <div>
+          <span v-if="todaySpecial === 'recycle'" class="special-day recycle">♻️ 回收日（週三）</span>
+          <span v-if="todaySpecial === 'no-trash'" class="special-day no-trash">🚫 不可扔垃圾（週六）</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 待處理課程 -->
+    <div v-if="pendingTasks.length > 0" class="bg-orange-50 border border-orange-300 p-3 rounded-xl mb-6">
+      <h4 class="font-bold text-sm text-orange-700 mb-2">⏳ 待處理課程（暫存，請盡快指派）</h4>
+      <div class="space-y-2">
+        <div v-for="t in pendingTasks" :key="t.id" class="pending-task flex justify-between items-center flex-wrap gap-2">
+          <div class="text-xs">
+            <div class="font-bold">{{ t.serviceName }}（剩餘 {{ t.duration }} 分）</div>
+            <div class="text-gray-500">原技師：{{ t.fromStaffNumber }} ・ 產生時間：{{ formatTime(t.createdAt) }}</div>
+          </div>
+          <button @click="openAssignPendingModal(t.id)" class="bg-blue-600 text-white px-3 py-1 rounded text-xs">指派技師</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 輪牌順序 -->
+    <div class="bg-gray-800 text-white p-4 rounded-xl mb-6">
+      <h3 class="font-bold mb-2">🏆 輪牌順序</h3>
+      <div class="flex flex-wrap gap-2">
+        <div v-for="(s, idx) in waitingStaffs" :key="s.id" class="bg-white/10 px-3 py-1 rounded-full text-sm">
+          {{ idx+1 }}. {{ s.staffNumber }}{{ s.isLelai ? '樂' : '' }}
+          <span v-if="s.room" class="text-blue-300 text-xs ml-1">🚪{{ s.room }}</span>
+          <span v-if="s.supportLelai" class="text-cyan-300 text-xs ml-1">支援</span>
+          <span v-if="s.bringingGuest" class="text-green-300 text-xs ml-1">帶客</span>
+          <span v-if="s.groupTag" class="text-amber-300 text-xs ml-1">ペア{{ s.groupTag }}</span>
+        </div>
+        <div v-if="waitingStaffs.length===0" class="text-white/50 text-sm">無待班技師</div>
+      </div>
+      <div v-if="standbyStaffs.length > 0" class="mt-2 border-t border-white/20 pt-2">
+        <span class="text-xs text-white/50">備牌：</span>
+        <span v-for="s in standbyStaffs" :key="s.id" class="text-xs text-white/70 ml-2">{{ s.staffNumber }}{{ s.isLelai ? '樂' : '' }}</span>
+      </div>
+      <div v-if="outStaffs.length > 0" class="mt-2 border-t border-white/20 pt-2">
+        <span class="text-xs text-blue-300">外出：</span>
+        <span v-for="s in outStaffs" :key="s.id" class="text-xs text-blue-300 ml-2">{{ s.staffNumber }}{{ s.isLelai ? '樂' : '' }}</span>
+      </div>
+      <div v-if="interviewStaffs.length > 0" class="mt-2 border-t border-white/20 pt-2">
+        <span class="text-xs text-yellow-300">約談：</span>
+        <span v-for="s in interviewStaffs" :key="s.id" class="text-xs text-yellow-300 ml-2">{{ s.staffNumber }}{{ s.isLelai ? '樂' : '' }}</span>
+      </div>
+      <div v-if="leftStaffs.length > 0" class="mt-2 border-t border-white/20 pt-2">
+        <span class="text-xs text-purple-300">🔙 已回樂來：</span>
+        <span v-for="s in leftStaffs" :key="s.id" class="text-xs text-purple-300 ml-2">
+          {{ s.staffNumber }}{{ s.isLelai ? '樂' : '' }}
+          <button @click="recallFromLelai(s.id)" class="text-xs bg-green-500 text-white px-2 py-0.5 rounded">召回</button>
+        </span>
+      </div>
+    </div>
+
+    <!-- 房間狀態 -->
+    <div class="bg-white p-4 rounded-xl shadow mb-6">
+      <h3 class="font-bold mb-2">🚪 房間狀態</h3>
+      <div class="grid grid-cols-3 md:grid-cols-6 gap-2">
+        <div v-for="i in 6" :key="i" class="room-card" :class="{
+          'used': roomStatus[i] && roomStatus[i].status === '使用中',
+          'cleaning': roomStatus[i] && roomStatus[i].status === '打掃中',
+          'empty': roomStatus[i] && roomStatus[i].status === '空房'
+        }">
+          <div class="text-sm font-bold">{{ i }}號房</div>
+          <div class="text-xs" :class="{
+            'text-green-600': roomStatus[i]?.status === '空房',
+            'text-red-600': roomStatus[i]?.status === '使用中',
+            'text-yellow-600': roomStatus[i]?.status === '打掃中'
+          }">{{ roomStatus[i]?.status || '空房' }}</div>
+          <div v-if="roomStatus[i]?.currentUser" class="text-xs font-bold">{{ roomStatus[i].currentUser }}</div>
+          <div v-if="roomStatus[i]?.previousUser" class="text-xs text-gray-400">前: {{ roomStatus[i].previousUser }}</div>
+          <div class="mt-2 flex justify-center gap-1">
+            <button class="status-btn green" @click="setRoomStatus(i, '空房')">空房</button>
+            <button class="status-btn yellow" @click="setRoomStatus(i, '打掃中')">打掃</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 技師卡片 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div v-for="s in allActiveStaffs" :key="s.id" class="bg-white p-4 rounded-xl shadow border" :class="{'border-pink-400': s.isLelai}">
+        <div class="flex justify-between items-start">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="staff-number">{{ s.isLelai ? '樂' + s.staffNumber : s.staffNumber }}</span>
+            <span v-if="s.todayLiveIn || isLiveInToday(s)" class="staff-livein">🏠 住店</span>
+            <span class="status-badge" :class="getStatusBadgeClass(s)">{{ getStatusText(s) }}</span>
+            <span v-if="s.lastTrain && !isLiveInToday(s) && !s.todayLiveIn" class="staff-train">🚃 {{ s.lastTrain }}</span>
+          </div>
+          <div class="flex gap-1 flex-wrap justify-end">
+            <select v-model="s.review" @change="recordReview(s)" class="text-xs border rounded p-1">
+              <option value="">口コミ</option>
+              <option value="G">Google</option>
+              <option value="H">HotPepper</option>
+              <option value="GH">兩者</option>
+              <option value="none">不願</option>
+            </select>
+            <label class="flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded">
+              <input type="checkbox" v-model="s.todayLiveIn" @change="persistState()">
+              住店(今日)
+            </label>
+            <label class="flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded">
+              <input type="checkbox" v-model="s.excusedLate" @change="toggleExcused(s)">
+              已提前告知
+            </label>
+          </div>
+        </div>
+
+        <div v-if="s.status==='prep'" class="text-sm mt-1">
+          <span :class="{'text-orange-500': s.prepDuration < 300, 'text-red-500 prep-warning': s.prepDuration >= 300}">
+            ⏳ 準備中 {{ formatTimer(s.prepDuration) }}
+            <span v-if="s.prepDuration >= 300" class="font-bold">（超時未開始，將自動退牌）</span>
+          </span>
+        </div>
+
+        <div v-if="s.status==='timer' && s.currentService" class="mt-2 text-sm bg-gray-50 p-2 rounded">
+          <span class="font-bold">{{ s.currentService.name }}</span>
+          <span class="ml-2">({{ s.currentService.duration }}分)</span>
+          <br>
+          <span class="countdown" :class="{'overtime': s.isOvertime}">
+            ⏱ {{ s.isOvertime ? '超時 ' + formatTimer(s.overtimeSeconds) : '剩餘 ' + formatTimer(s.timer) }}
+          </span>
+          <span v-if="s.overtimeDeduction > 0" class="text-red-500 ml-2">超時扣款: ¥{{ s.overtimeDeduction }}</span>
+        </div>
+
+        <div v-if="s.supportLelai" class="text-xs text-cyan-500 mt-1">🔄 支援樂來中</div>
+        <div v-if="s.bringingGuest" class="text-xs text-green-500 mt-1">🚶 帶客中</div>
+        <div v-if="s.status==='out'" class="text-xs text-blue-500 mt-1">🚶 外出中 {{ formatTimer(s.outDuration) }}</div>
+
+        <div class="flex flex-wrap gap-2 mt-3">
+          <button v-if="s.status==='waiting'" @click="openMenu(s.id)" class="bg-amber-500 text-white px-3 py-1 rounded text-xs">結帳</button>
+          <button v-if="s.status==='prep'" @click="startTimer(s.id)" class="bg-blue-500 text-white px-3 py-1 rounded text-xs">開始</button>
+          <button v-if="s.status==='timer'" @click="finishTask(s.id)" class="bg-emerald-500 text-white px-3 py-1 rounded text-xs">完工</button>
+          <button v-if="s.status==='standby'" @click="forceWaiting(s.id)" class="bg-gray-700 text-white px-3 py-1 rounded text-xs">上工</button>
+          <button v-if="s.status==='waiting'" @click="startInterview(s.id)" class="bg-purple-600 text-white px-3 py-1 rounded text-xs">約談</button>
+          <button v-if="s.status==='interview'" @click="endInterview(s.id)" class="bg-emerald-600 text-white px-3 py-1 rounded text-xs">結束約談</button>
+          <button v-if="s.status==='timer'" @click="openSwitchModal(s.id)" class="bg-red-400 text-white px-3 py-1 rounded text-xs">換技師</button>
+          <button v-if="s.status==='timer'" @click="openExtendModal(s.id)" class="bg-purple-500 text-white px-3 py-1 rounded text-xs">延長</button>
+          <button v-if="s.status!=='out' && s.status!=='timer' && s.status!=='prep' && s.status!=='interview' && !s.supportLelai && !s.bringingGuest && !isHeadOfQueue(s.id)"
+                  @click="startOut(s.id)" class="bg-blue-600 text-white px-3 py-1 rounded text-xs">外出</button>
+          <button v-if="s.status==='out'" @click="endOut(s.id)" class="bg-emerald-600 text-white px-3 py-1 rounded text-xs">返回</button>
+          <button v-if="!s.isLelai && s.status==='waiting' && !s.supportLelai && !s.bringingGuest" @click="startSupport(s.id)" class="bg-cyan-600 text-white px-3 py-1 rounded text-xs">支援樂來</button>
+          <button v-if="s.supportLelai" @click="endSupport(s.id)" class="bg-red-400 text-white px-3 py-1 rounded text-xs">取消支援</button>
+          <button v-if="!s.isLelai && s.status==='waiting' && !s.supportLelai && !s.bringingGuest && isHeadOfQueue(s.id)" @click="startBring(s.id)" class="bg-green-600 text-white px-3 py-1 rounded text-xs">帶客</button>
+          <button v-if="s.bringingGuest" @click="endBring(s.id)" class="bg-red-400 text-white px-3 py-1 rounded text-xs">結束帶客</button>
+          <button v-if="s.isLelai && s.status==='waiting'" @click="goBackLelai(s.id)" class="bg-purple-600 text-white px-3 py-1 rounded text-xs">回樂來</button>
+          <button v-if="bossAuthenticated && s.status!=='waiting' && s.status!=='timer' && s.status!=='prep'" @click="forceWaiting(s.id)" class="bg-red-600 text-white px-3 py-1 rounded text-xs">強制上工</button>
+        </div>
+
+        <div v-if="s.penalty" class="text-red-500 text-xs mt-1 cursor-pointer" @click="showPenaltyDetail(s.id)">罰款累計: ¥{{ s.penalty.toLocaleString() }}（點擊查看明細）</div>
+        <div v-if="s.totalDeduction" class="text-red-500 text-xs mt-1">超時累計扣款: ¥{{ s.totalDeduction.toLocaleString() }}</div>
+        <div v-if="s.commissionOwed" class="text-amber-600 text-xs mt-1">介紹抽成待入帳: ¥{{ s.commissionOwed.toLocaleString() }}</div>
+        <div v-if="s.isLate" class="text-orange-500 text-xs mt-1">本日遲到</div>
+        <div v-if="s.excusedLate" class="text-blue-500 text-xs mt-1">已提前告知</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 頁面3：技師資訊 ===== -->
+  <div class="page" :class="{ active: currentPage === 'staff' }">
+    <div class="bg-white p-4 rounded-xl shadow">
+      <h2 class="text-xl font-bold mb-4">👤 技師資訊</h2>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-100">
+            <tr><th class="p-2">編號</th><th class="p-2">名稱</th><th class="p-2">樂來</th><th class="p-2">狀態</th><th class="p-2">指名率</th><th class="p-2">本月出勤</th><th class="p-2">口コミ累計</th><th class="p-2">販賣</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="s in staffs" :key="s.id" class="border-b" :class="{'bg-purple-50': s.isLelai}">
+              <td class="p-2 font-bold">{{ s.staffNumber }}</td>
+              <td class="p-2">{{ s.name || '-' }}</td>
+              <td class="p-2">{{ s.isLelai ? '✅' : '' }}</td>
+              <td class="p-2">{{ s.status === 'left' ? '已回樂來' : getStatusText(s) }}</td>
+              <td class="p-2">{{ calcNamedRate(s) }}% ({{ s.namedCount }}/{{ s.totalServices }})</td>
+              <td class="p-2">{{ monthlyAttendanceCount(s) }} 天</td>
+              <td class="p-2">G:{{ s.reviewCounts.month.G }} H:{{ s.reviewCounts.month.H }}</td>
+              <td class="p-2">眼罩 {{ s.eyeMaskSold }} / 腳膏 {{ s.footCreamSold }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 頁面4：老闆後台 ===== -->
+  <div class="page" :class="{ active: currentPage === 'boss' }">
+    <div v-if="!bossAuthenticated" class="bg-white p-6 rounded-xl shadow text-center">
+      <h3 class="text-xl font-bold mb-4">🔒 老闆驗證</h3>
+      <input type="password" v-model="bossPassword" placeholder="請輸入密碼" class="border p-2 rounded w-48 text-center" @keyup.enter="verifyBoss">
+      <button @click="verifyBoss" class="bg-blue-600 text-white px-6 py-2 rounded ml-2">登入</button>
+      <div v-if="bossError" class="text-red-500 text-sm mt-2">密碼錯誤</div>
+      <div class="text-xs text-gray-400 mt-3">首次使用請洽系統管理員取得初始密碼；登入後系統會自動提醒立即更改。</div>
+    </div>
+    <div v-else>
+      <div v-if="usingDefaultPassword" class="bg-red-50 border border-red-300 text-red-700 p-3 rounded-xl mb-6 flex justify-between items-center flex-wrap gap-2">
+        <span class="text-sm font-bold">⚠️ 目前仍在使用系統預設密碼，安全性不足，請立即前往「密碼設定」更改。</span>
+        <button @click="openChangePasswordModal" class="bg-red-600 text-white px-3 py-1 rounded text-sm">立即變更</button>
+      </div>
+      <!-- 分店切換與新增 -->
+      <div class="bg-white p-4 rounded-xl shadow mb-6">
+        <h3 class="font-bold mb-2">🏢 分店管理</h3>
+        <div class="flex gap-2 flex-wrap">
+          <input v-model="newBranchName" placeholder="新分店名稱" class="border p-2 rounded text-sm flex-1 min-w-[120px]">
+          <button @click="addBranch" class="bg-green-600 text-white px-4 py-2 rounded text-sm">新增分店</button>
+        </div>
+        <div class="mt-2 text-sm text-gray-500">目前分店：<span v-for="b in branches" :key="b.id" class="inline-block bg-gray-100 px-2 py-1 rounded mr-2">{{ b.name }}</span></div>
+      </div>
+
+      <!-- 排班編輯 -->
+      <div class="bg-white p-4 rounded-xl shadow mb-6">
+        <h3 class="font-bold mb-2">📅 排班編輯</h3>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-xs">
+            <thead><tr class="bg-gray-100"><th class="p-2">技師</th><th v-for="d in weekDays" :key="d" class="p-2">{{ d }}</th></tr></thead>
+            <tbody>
+              <tr v-for="s in staffs" :key="s.id" class="border-b">
+                <td class="p-2 font-bold">{{ s.staffNumber }}{{ s.isLelai ? '樂' : '' }}</td>
+                <td v-for="d in weekDays" :key="d" class="p-2">
+                  <select v-model="s.schedule[d]" class="border rounded text-xs p-1 w-full">
+                    <option value="早">早</option>
+                    <option value="晚">晚</option>
+                    <option value="休">休</option>
+                    <option value="住店">住店</option>
+                  </select>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <button @click="saveSchedule" class="mt-3 bg-blue-500 text-white px-4 py-2 rounded text-sm">儲存排班</button>
+      </div>
+
+      <!-- 值日設定 -->
+      <div class="bg-white p-4 rounded-xl shadow mb-6">
+        <h3 class="font-bold mb-2">🧹 值日設定</h3>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-xs">
+            <thead><tr class="bg-gray-100"><th class="p-2">星期</th><th class="p-2">拖地&倒垃圾</th><th class="p-2">擦機器&洗拖鞋</th></tr></thead>
+            <tbody>
+              <tr v-for="d in weekDays" :key="d" class="border-b">
+                <td class="p-2 font-bold">{{ d }}</td>
+                <td class="p-2">
+                  <select v-model="dutyClean[d]" class="border rounded text-xs p-1 w-full">
+                    <option v-for="s in staffs" :key="s.id" :value="s.id">{{ s.staffNumber }}</option>
+                  </select>
+                </td>
+                <td class="p-2">
+                  <select v-model="dutyMachine[d]" class="border rounded text-xs p-1 w-full">
+                    <option v-for="s in staffs" :key="s.id" :value="s.id">{{ s.staffNumber }}</option>
+                  </select>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <button @click="saveDuty" class="mt-3 bg-blue-500 text-white px-4 py-2 rounded text-sm">儲存值日</button>
+      </div>
+
+      <!-- 營運報表 + 圖表 -->
+      <div class="bg-white p-4 rounded-xl shadow mb-6">
+        <h3 class="font-bold mb-2">📈 營運報表</h3>
+        <div class="grid grid-cols-2 gap-4 mb-3">
+          <div class="bg-gray-50 p-3 rounded">
+            <span class="text-xs text-gray-500">本日營收 / 客數</span>
+            <div class="text-lg font-bold text-orange-600">¥{{ todayRevenue.toLocaleString() }}</div>
+            <div class="text-xs text-gray-500">{{ todayCustomers }} 位客人</div>
+          </div>
+          <div class="bg-gray-50 p-3 rounded">
+            <span class="text-xs text-gray-500">本月營收 / 客數</span>
+            <div class="text-lg font-bold text-orange-600">¥{{ monthlyRevenue.toLocaleString() }}</div>
+            <div class="text-xs text-gray-500">{{ monthlyCustomers }} 位客人</div>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <span class="text-xs font-bold">課程銷售排行（本月）</span>
+            <div class="text-sm mt-1">
+              <div v-for="(item, idx) in topCourses" :key="idx">{{ idx+1 }}. {{ item.name }}：{{ item.count }}次</div>
+              <div v-if="topCourses.length===0" class="text-gray-400 text-xs">尚無資料</div>
+            </div>
+          </div>
+          <div>
+            <span class="text-xs font-bold">技師業績排行（本月）</span>
+            <div class="text-sm mt-1">
+              <div v-for="p in staffPerformance" :key="p.id" class="flex justify-between border-b py-0.5"><span>{{ p.name }}</span><span class="font-bold">¥{{ p.total.toLocaleString() }}</span></div>
+              <div v-if="staffPerformance.length===0" class="text-gray-400 text-xs">尚無資料</div>
+            </div>
+          </div>
+        </div>
+        <!-- 圖表：營收趨勢與尖峰時段 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <div>
+            <h4 class="text-sm font-bold mb-1">📊 近7日營收趨勢</h4>
+            <div class="chart-container"><canvas id="revenueChart"></canvas></div>
+          </div>
+          <div>
+            <h4 class="text-sm font-bold mb-1">⏰ 尖峰時段（本日）</h4>
+            <div class="chart-container"><canvas id="peakChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 交易紀錄 -->
+      <div class="bg-white p-4 rounded-xl shadow mb-6">
+        <div class="flex justify-between items-center mb-2 flex-wrap">
+          <h3 class="font-bold">📜 交易紀錄（最近50筆）</h3>
+          <div class="flex gap-2 flex-wrap">
+            <button @click="exportExcel" class="text-xs bg-green-600 text-white px-3 py-1 rounded">匯出 Excel</button>
+            <button @click="clearOldLogs" class="text-xs bg-red-100 text-red-600 px-3 py-1 rounded">清除30天前紀錄</button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full log-table">
+            <thead class="bg-gray-100"><tr><th>時間</th><th>客人</th><th>項目</th><th>技師</th><th class="text-right">金額</th><th>付款</th><th>收付人</th></tr></thead>
+            <tbody>
+              <tr v-for="log in recentLogs" :key="log.id" class="border-b">
+                <td>{{ formatTime(log.time) }}</td>
+                <td>{{ log.customerName || '-' }}<span v-if="log.visitType==='repeat'" class="text-gray-400">（回）</span><span v-else-if="log.visitType==='first'" class="text-gray-400">（初）</span></td>
+                <td>{{ log.participants && log.participants[0] ? log.participants[0].serviceName : '-' }}</td>
+                <td>{{ log.participants && log.participants[0] ? log.participants[0].staffName : '-' }}</td>
+                <td class="text-right" :class="{'text-red-500': log.amount < 0}">¥{{ log.amount.toLocaleString() }}</td>
+                <td>{{ log.payment }}{{ log.isLelaiPayment ? '(樂來)' : '' }}</td>
+                <td>{{ log.checkoutBy }}</td>
+              </tr>
+              <tr v-if="recentLogs.length === 0"><td colspan="7" class="text-center text-gray-400 p-2">尚無交易紀錄</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 顧客歷史查詢 -->
+      <div class="bg-white p-4 rounded-xl shadow mb-6">
+        <h3 class="font-bold mb-2">🔍 顧客歷史查詢</h3>
+        <p class="text-xs text-gray-500 mb-2">需在結帳時填寫過客人姓名才能查到；可只查某位技師服務過的客人，或反過來查某位客人的所有到店紀錄。</p>
+        <div class="flex gap-2 mb-3 flex-wrap">
+          <input v-model="customerSearchText" placeholder="輸入客人姓名搜尋（可留空）" class="border p-2 rounded flex-1 min-w-[140px] text-sm">
+          <select v-model="customerSearchStaffId" class="border p-2 rounded text-sm">
+            <option value="">全部技師</option>
+            <option v-for="s in staffs" :key="s.id" :value="s.id">{{ s.staffNumber }}{{ s.isLelai ? '樂' : '' }}</option>
+          </select>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full log-table">
+            <thead class="bg-gray-100"><tr><th>日期時間</th><th>客人</th><th>初/回</th><th>技師</th><th>課程</th><th class="text-right">金額</th></tr></thead>
+            <tbody>
+              <tr v-for="r in customerSearchResults" :key="r.id" class="border-b">
+                <td>{{ formatDateTime(r.time) }}</td>
+                <td>{{ r.customerName || '-' }}</td>
+                <td>{{ r.visitType === 'repeat' ? '回頭' : (r.visitType === 'first' ? '初次' : '-') }}</td>
+                <td>{{ r.participants && r.participants[0] ? r.participants[0].staffName : '-' }}</td>
+                <td>{{ r.participants && r.participants[0] ? r.participants[0].serviceName : '-' }}</td>
+                <td class="text-right">¥{{ r.amount.toLocaleString() }}</td>
+              </tr>
+              <tr v-if="customerSearchResults.length === 0"><td colspan="6" class="text-center text-gray-400 p-2">查無符合條件的紀錄（僅搜尋有填寫姓名/代號的交易）</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 店內設定 -->
+      <div class="bg-white p-4 rounded-xl shadow mb-6">
+        <h3 class="font-bold mb-2">🏪 店內設定</h3>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="text-xs text-gray-500">店名</label><input v-model="storeInfo.name" class="border p-2 rounded w-full text-sm"></div>
+          <div><label class="text-xs text-gray-500">電話</label><input v-model="storeInfo.phone" class="border p-2 rounded w-full text-sm"></div>
+          <div class="col-span-2"><label class="text-xs text-gray-500">地址</label><input v-model="storeInfo.address" class="border p-2 rounded w-full text-sm"></div>
+        </div>
+        <button @click="saveStoreInfo" class="mt-3 bg-blue-500 text-white px-4 py-2 rounded text-sm">儲存店內資訊</button>
+      </div>
+
+      <!-- 密碼設定 -->
+      <div class="bg-white p-4 rounded-xl shadow mb-6">
+        <h3 class="font-bold mb-2">🔒 密碼設定</h3>
+        <p class="text-xs text-gray-500 mb-2">密碼加密儲存於本機瀏覽器，請妥善保管；忘記密碼需清除資料重設。</p>
+        <button @click="openChangePasswordModal" class="bg-blue-500 text-white px-4 py-2 rounded text-sm">變更密碼</button>
+      </div>
+
+      <!-- 資料備份 -->
+      <div class="bg-white p-4 rounded-xl shadow mb-6">
+        <h3 class="font-bold mb-2">💾 資料備份</h3>
+        <p class="text-xs text-gray-500 mb-2">所有資料僅儲存在本機瀏覽器（localStorage），清除快取或更換裝置會導致資料遺失，建議定期匯出備份。匯出/匯入會涵蓋「所有分店」的資料。</p>
+        <div class="flex gap-2 flex-wrap">
+          <button @click="exportBackup" class="bg-blue-500 text-white px-4 py-2 rounded text-sm">匯出備份</button>
+          <label class="bg-gray-200 px-4 py-2 rounded text-sm cursor-pointer">
+            匯入備份
+            <input type="file" accept="application/json" @change="handleImportBackup" class="hidden">
+          </label>
+        </div>
+      </div>
+
+      <!-- 課程管理 -->
+      <div class="bg-white p-4 rounded-xl shadow mb-6">
+        <h3 class="font-bold mb-2">📋 課程管理</h3>
+        <div class="space-y-3">
+          <div v-for="(svc, idx) in serviceCatalog" :key="idx" class="border-b py-2">
+            <div class="flex gap-1 items-center flex-wrap">
+              <input v-model="svc.name_zh" placeholder="名稱" class="border p-1 text-sm flex-1 min-w-[80px]">
+              <input v-model.number="svc.price" placeholder="價格" class="border p-1 text-sm w-16">
+              <span class="text-xs">分</span>
+              <input v-model.number="svc.totalDuration" placeholder="時長" class="border p-1 text-sm w-14">
+              <select v-model="svc.source" class="border p-1 text-xs w-24">
+                <option value="hotpepper">HotPepper</option>
+                <option value="instore">悠樂店內</option>
+                <option value="enet">e網</option>
+                <option value="lelai_instore">樂來店內</option>
+                <option value="lelai_coupon">樂來クーポン</option>
+                <option value="custom">自訂</option>
+              </select>
+              <select v-model.number="svc.pairDiscount" class="border p-1 text-xs w-24">
+                <option :value="0">無</option>
+                <option :value="500">75分 -500</option>
+                <option :value="1000">90分 -1000</option>
+                <option :value="1500">120分 -1500</option>
+                <option :value="2500">150分 -2500</option>
+              </select>
+              <select v-model="svc.extendOption" class="border p-1 text-xs w-20">
+                <option value="手技10分">手技10分</option>
+                <option value="機器10分">機器10分</option>
+              </select>
+              <input v-model.number="svc.extendRate" placeholder="延長費/10分" class="border p-1 text-xs w-20" type="number">
+              <div class="flex items-center gap-1">
+                <img v-if="svc.imageData" :src="svc.imageData" class="preview-img">
+                <img v-else-if="svc.image" :src="svc.image" class="preview-img">
+                <span v-else class="text-xs text-gray-400 w-10 h-10 flex items-center justify-center border border-dashed">無圖</span>
+                <label class="upload-btn">選擇圖片
+                  <input type="file" accept="image/*" @change="handleImageUpload($event, idx)" class="hidden">
+                </label>
+                <button v-if="svc.imageData" @click="removeImage(idx)" class="text-red-400 text-xs">✕</button>
+              </div>
+              <button @click="removeCourse(idx)" class="text-red-400 text-xs">✕</button>
+            </div>
+            <div class="flex flex-wrap items-center gap-1 mt-1">
+              <span class="text-xs text-gray-400 mr-1">所需技能（用於「技能不足換人」判斷，不選則不限制）：</span>
+              <span v-for="skill in allSkills" :key="skill" class="skill-tag" :class="{selected: svc.requiredSkills && svc.requiredSkills.includes(skill)}" @click="toggleRequiredSkill(svc, skill)">{{ skill }}</span>
+            </div>
+          </div>
+          <button @click="openCustomCourse" class="bg-green-500 text-white px-3 py-1 rounded text-xs">＋ 新增課程</button>
+        </div>
+        <button @click="saveCourses" class="mt-3 bg-blue-500 text-white px-4 py-2 rounded text-sm">儲存課程</button>
+      </div>
+
+      <!-- 技能管理 -->
+      <div class="bg-white p-4 rounded-xl shadow mb-6">
+        <h3 class="font-bold mb-2">🔧 技師技能管理</h3>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="bg-gray-100">
+              <tr><th class="p-2">編號</th><th class="p-2">名稱</th><th v-for="skill in allSkills" :key="skill" class="p-2 text-center">{{ skill }}</th><th class="p-2">操作</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="s in staffs" :key="s.id" class="border-b">
+                <td class="p-2 font-bold">{{ s.staffNumber }}{{ s.isLelai ? '樂' : '' }}</td>
+                <td class="p-2">{{ s.name || '-' }}</td>
+                <td v-for="skill in allSkills" :key="skill" class="p-2 text-center">
+                  <input type="checkbox" v-model="s.skills[skill]" class="w-4 h-4">
+                </td>
+                <td class="p-2">
+                  <button @click="setAllSkills(s.id, true)" class="text-xs bg-blue-500 text-white px-2 py-1 rounded">全選</button>
+                  <button @click="setAllSkills(s.id, false)" class="text-xs bg-gray-300 px-2 py-1 rounded">全不選</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <button @click="saveSkills" class="mt-3 bg-blue-500 text-white px-4 py-2 rounded text-sm">儲存所有技能</button>
+      </div>
+
+      <!-- 人員管理 -->
+      <div class="bg-white p-4 rounded-xl shadow">
+        <h3 class="font-bold mb-2">👥 人員管理</h3>
+        <div class="flex gap-2 mb-2">
+          <input v-model="newStaffNumber" placeholder="編號（必填）" class="border p-2 rounded text-sm w-32">
+          <label class="flex items-center gap-1 text-sm"><input type="checkbox" v-model="newStaffIsLelai"> 樂來</label>
+          <button @click="addStaff" class="bg-green-600 text-white px-4 py-2 rounded text-sm">新增</button>
+        </div>
+        <div class="mt-3 space-y-2">
+          <div v-for="s in staffs" :key="s.id" class="flex flex-wrap items-center gap-2 bg-gray-50 p-2 rounded">
+            <span class="font-bold">{{ s.staffNumber }}{{ s.isLelai ? '樂' : '' }}</span>
+            <span class="text-sm text-gray-500">{{ s.name || '-' }}</span>
+            <span class="text-xs text-gray-400" v-if="s.status === 'left'">(已回樂來)</span>
+            <label class="flex items-center gap-1 text-xs">
+              末班車
+              <input v-model="s.lastTrain" placeholder="HH:MM" class="border rounded p-1 w-16 text-xs">
+            </label>
+            <label class="flex items-center gap-1 text-xs">
+              <input type="checkbox" v-model="s.isLiveIn"> 固定住店
+            </label>
+            <button v-if="s.status === 'left'" @click="recallFromLelai(s.id)" class="bg-green-500 text-white px-2 py-0.5 rounded text-xs">召回</button>
+            <button @click="removeStaff(s.id)" class="text-red-400 text-xs">✕</button>
+          </div>
+        </div>
+        <div class="mt-3 text-xs text-gray-400">點擊 ✕ 可刪除技師</div>
+      </div>
+
+      <!-- 操作日誌 -->
+      <div class="bg-white p-4 rounded-xl shadow mt-6">
+        <h3 class="font-bold mb-2">📋 操作日誌（最近50筆）</h3>
+        <div class="audit-log">
+          <div v-for="entry in auditLogs.slice(0,50)" :key="entry.id" class="text-xs border-b py-1">
+            {{ formatDateTime(entry.time) }} - {{ entry.action }} ({{ entry.user }})
+          </div>
+          <div v-if="auditLogs.length===0" class="text-gray-400">尚無操作紀錄</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 頁面5：預約管理 ===== -->
+  <div class="page" :class="{ active: currentPage === 'reservations' }">
+    <div class="bg-white p-4 rounded-xl shadow">
+      <h3 class="font-bold mb-4">📅 預約管理</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <h4 class="font-semibold mb-2">新增預約</h4>
+          <div class="space-y-2">
+            <input v-model="reservationForm.customerName" placeholder="客人姓名" class="border p-2 rounded w-full text-sm">
+            <select v-model="reservationForm.staffId" class="border p-2 rounded w-full text-sm">
+              <option v-for="s in staffs" :key="s.id" :value="s.id">{{ s.staffNumber }}{{ s.isLelai ? '樂' : '' }}</option>
+            </select>
+            <select v-model="reservationForm.serviceId" class="border p-2 rounded w-full text-sm">
+              <option v-for="svc in serviceCatalog" :key="svc.id" :value="svc.id">{{ svc.name_zh }}</option>
+            </select>
+            <input type="datetime-local" v-model="reservationForm.time" class="border p-2 rounded w-full text-sm">
+            <button @click="addReservation" class="bg-blue-600 text-white px-4 py-2 rounded w-full">預約</button>
+          </div>
+        </div>
+        <div>
+          <h4 class="font-semibold mb-2">預約清單</h4>
+          <div v-if="reservations.length===0" class="text-gray-400 text-sm">尚無預約</div>
+          <div v-for="r in reservations" :key="r.id" class="reservation-card flex justify-between items-center">
+            <div>
+              <span class="font-bold">{{ r.customerName }}</span>
+              <span class="text-xs text-gray-500 ml-2">{{ formatDateTime(r.time) }}</span>
+              <span class="text-xs ml-2">{{ getStaffName(r.staffId) }}</span>
+              <span class="text-xs ml-2">{{ getServiceName(r.serviceId) }}</span>
+            </div>
+            <button @click="cancelReservation(r.id)" class="text-red-400 text-xs">取消</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 頁面6：會員點數 ===== -->
+  <div class="page" :class="{ active: currentPage === 'members' }">
+    <div class="bg-white p-4 rounded-xl shadow">
+      <h3 class="font-bold mb-4">👥 會員點數管理</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <h4 class="font-semibold mb-2">新增會員</h4>
+          <div class="space-y-2">
+            <input v-model="memberForm.name" placeholder="姓名" class="border p-2 rounded w-full text-sm">
+            <input v-model="memberForm.phone" placeholder="電話" class="border p-2 rounded w-full text-sm">
+            <button @click="addMember" class="bg-blue-600 text-white px-4 py-2 rounded w-full">新增會員</button>
+          </div>
+        </div>
+        <div>
+          <h4 class="font-semibold mb-2">會員列表</h4>
+          <div v-if="members.length===0" class="text-gray-400 text-sm">尚無會員</div>
+          <div v-for="m in members" :key="m.id" class="border-b py-2 flex justify-between items-center">
+            <div>
+              <span class="font-bold">{{ m.name }}</span>
+              <span class="text-xs text-gray-500 ml-2">{{ m.phone }}</span>
+              <span class="member-badge ml-2">點數 {{ m.points }}</span>
+            </div>
+            <div class="flex gap-1">
+              <button @click="addPoints(m.id, 100)" class="text-xs bg-green-500 text-white px-2 py-1 rounded">+100</button>
+              <button @click="deductPoints(m.id, 100)" class="text-xs bg-red-500 text-white px-2 py-1 rounded">-100</button>
+              <button @click="deleteMember(m.id)" class="text-red-400 text-xs">✕</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 頁面7：庫存管理 ===== -->
+  <div class="page" :class="{ active: currentPage === 'inventory' }">
+    <div class="bg-white p-4 rounded-xl shadow">
+      <h3 class="font-bold mb-4">📦 庫存管理</h3>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-100">
+            <tr><th class="p-2">品項</th><th class="p-2">目前庫存</th><th class="p-2">安全庫存</th><th class="p-2">狀態</th><th class="p-2">操作</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in inventory" :key="item.id" class="border-b">
+              <td class="p-2">{{ item.name }}</td>
+              <td class="p-2">{{ item.quantity }}</td>
+              <td class="p-2">{{ item.safetyStock }}</td>
+              <td class="p-2"><span v-if="item.quantity <= item.safetyStock" class="inventory-low">⚠️ 需補貨</span><span v-else>✅ 充足</span></td>
+              <td class="p-2">
+                <button @click="adjustInventory(item.id, -1)" class="text-xs bg-red-400 text-white px-2 py-1 rounded">-1</button>
+                <button @click="adjustInventory(item.id, 1)" class="text-xs bg-green-400 text-white px-2 py-1 rounded">+1</button>
+                <button @click="setInventory(item.id, 10)" class="text-xs bg-blue-400 text-white px-2 py-1 rounded">設為10</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 結帳彈窗 ===== -->
+  <div v-if="showCheckoutModal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 class="font-bold mb-2">結帳：{{ activeStaffName }}</h3>
+      <div v-if="!selectedService" class="mb-3">
+        <label class="text-xs text-gray-500">選擇課程</label>
+        <select @change="selectServiceById($event.target.value)" class="border p-2 rounded w-full">
+          <option value="">-- 請選擇課程 --</option>
+          <option v-for="svc in serviceCatalog" :key="svc.id" :value="svc.id">{{ svc.name_zh }} ¥{{ svc.price.toLocaleString() }}</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="text-xs text-gray-500">客人姓名／備註（選填）</label>
+        <div class="flex gap-2 items-center flex-wrap mt-1">
+          <input v-model="checkoutForm.customerName" list="customerNameList" class="border p-2 rounded flex-1 min-w-[100px]" placeholder="ホットペッパー/e網預約請填姓名">
+          <button type="button" v-for="src in quickSourceOptions" :key="src" @click="checkoutForm.customerName = src" class="quick-btn" :class="{selected: checkoutForm.customerName===src}">{{ src }}</button>
+        </div>
+        <datalist id="customerNameList">
+          <option v-for="n in customerNameSuggestions" :key="n" :value="n"></option>
+        </datalist>
+        <div class="flex gap-2 mt-2">
+          <button type="button" @click="checkoutForm.visitType = checkoutForm.visitType==='first' ? '' : 'first'" class="quick-btn" :class="{selected: checkoutForm.visitType==='first'}">初次</button>
+          <button type="button" @click="checkoutForm.visitType = checkoutForm.visitType==='repeat' ? '' : 'repeat'" class="quick-btn" :class="{selected: checkoutForm.visitType==='repeat'}">回頭</button>
+        </div>
+      </div>
+      <div class="text-2xl font-bold text-amber-600 mb-4">¥{{ checkoutFinalTotal }}</div>
+      <div class="checkout-detail">
+        <div class="row"><span>課程</span><span>¥{{ checkoutBaseTotal }}</span></div>
+        <div class="row" v-if="checkoutSheetsFee > 0"><span>床單</span><span>¥{{ checkoutSheetsFee }}</span></div>
+        <div class="row" v-if="checkoutOtherAddons > 0"><span>其他加購</span><span>¥{{ checkoutOtherAddons }}</span></div>
+        <div class="row" v-if="checkoutPromoDiscount > 0"><span>優惠折扣</span><span>-¥{{ checkoutPromoDiscount }}</span></div>
+        <div class="row" v-if="checkoutPaymentFee > 0"><span>手續費 ({{ Math.round(checkoutForm.payment.fee*100) }}%)</span><span>+¥{{ checkoutPaymentFee }}</span></div>
+        <div class="row font-bold border-t border-gray-300 pt-1 mt-1"><span>合計</span><span>¥{{ checkoutFinalTotal }}</span></div>
+      </div>
+      <div class="mb-2 mt-3">
+        <label class="text-xs text-gray-500">收付人</label>
+        <select v-model="checkoutForm.checkoutBy" class="border p-2 rounded w-full">
+          <option v-for="p in availableCheckoutStaffs" :key="p.id" :value="p.name">{{ p.name }}</option>
+        </select>
+      </div>
+      <div class="mb-2">
+        <label class="text-xs text-gray-500">收款來源</label>
+        <select v-model="checkoutForm.paymentSource" class="border p-2 rounded w-full">
+          <option value="yuraku">悠樂收款</option>
+          <option value="lelai">樂來收款</option>
+        </select>
+      </div>
+      <div class="flex flex-wrap gap-2 mb-2">
+        <button v-for="pay in paymentMethods" :key="pay.name" @click="checkoutForm.payment=pay"
+                class="px-3 py-1 rounded border relative" :class="checkoutForm.payment.name===pay.name?'bg-blue-600 text-white':'bg-white'">
+          {{ pay.name }}
+          <span v-if="pay.fee > 0" class="text-[8px] block text-gray-500">(+{{ Math.round(pay.fee*100) }}%)</span>
+        </button>
+      </div>
+      <div class="flex flex-wrap gap-4 mb-3">
+        <label class="waive-checkbox"><input type="checkbox" v-model="checkoutForm.waiveFee"> 免手續費</label>
+        <label class="waive-checkbox"><input type="checkbox" v-model="checkoutForm.waiveSheets"> 免シーツ代</label>
+      </div>
+      <div v-if="checkoutForm.payment.name === '刷卡'" class="jcb-warning">⚠️ JCB卡無法使用</div>
+      <div class="flex gap-3 mt-3">
+        <button @click="showCheckoutModal=false" class="flex-1 bg-gray-200 py-2 rounded">取消</button>
+        <button @click="confirmCheckout" class="flex-1 bg-gray-800 text-white py-2 rounded font-bold">確認</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 罰金明細彈窗 ===== -->
+  <div v-if="showPenaltyModal" class="modal-overlay">
+    <div class="modal-box">
+      <h4 class="font-bold mb-2">罰金明細 - {{ penaltyTarget?.staffNumber }}</h4>
+      <div v-if="!penaltyTarget?.penaltyLog || penaltyTarget.penaltyLog.length === 0" class="text-sm text-gray-400">無罰金紀錄</div>
+      <div v-else class="max-h-60 overflow-y-auto"><div v-for="(item, idx) in penaltyTarget.penaltyLog" :key="idx" class="border-b py-2 text-sm"><div class="flex justify-between"><span>{{ formatTime(item.time) }}</span><span class="font-bold text-red-500">-¥{{ item.amount }}</span></div><div class="text-gray-500 text-xs">{{ item.reason }}</div></div></div>
+      <div class="mt-4 flex justify-end"><button @click="showPenaltyModal=false" class="bg-gray-200 px-4 py-2 rounded-xl">關閉</button></div>
+    </div>
+  </div>
+
+  <!-- ===== 換技師原因彈窗 ===== -->
+  <div v-if="showSwitchModal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 class="font-bold mb-3">換技師原因</h3>
+      <div class="space-y-2">
+        <div v-for="r in switchReasons" :key="r.value" class="reason-option" :class="{selected: switchModalReason===r.value}" @click="switchModalReason=r.value">
+          <input type="radio" :value="r.value" v-model="switchModalReason" class="mr-2">{{ r.label }}
+        </div>
+      </div>
+      <div class="flex gap-3 mt-4">
+        <button @click="showSwitchModal=false" class="flex-1 bg-gray-200 py-2 rounded">取消</button>
+        <button @click="confirmSwitchStaff" class="flex-1 bg-gray-800 text-white py-2 rounded font-bold">確認</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 延長服務彈窗 ===== -->
+  <div v-if="showExtendModal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 class="font-bold mb-3">延長服務時間</h3>
+      <div class="flex gap-2 mb-3 flex-wrap">
+        <button v-for="m in [10,15,20,30]" :key="m" class="quick-btn" :class="{selected: extendModalMinutes===m}" @click="extendModalMinutes=m">{{ m }}分</button>
+      </div>
+      <label class="text-xs text-gray-500">自訂分鐘數</label>
+      <input type="number" v-model.number="extendModalMinutes" class="border p-2 rounded w-full mb-3">
+      <div class="flex gap-3">
+        <button @click="showExtendModal=false" class="flex-1 bg-gray-200 py-2 rounded">取消</button>
+        <button @click="confirmExtend" class="flex-1 bg-gray-800 text-white py-2 rounded font-bold">確認延長</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 房間指派彈窗 ===== -->
+  <div v-if="showRoomAssignModal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 class="font-bold mb-3">請選擇房間</h3>
+      <div class="grid grid-cols-3 gap-2 mb-4">
+        <button v-for="i in 6" :key="i" class="room-select-btn" :class="{disabled: roomStatus[i] && roomStatus[i].status !== '空房'}" @click="chooseRoom(i)">
+          {{ i }}號房<br><span class="text-xs">{{ roomStatus[i]?.status || '空房' }}</span>
+        </button>
+      </div>
+      <button @click="skipRoomAssign" class="w-full bg-gray-200 py-2 rounded">稍後指派</button>
+    </div>
+  </div>
+
+  <!-- ===== 自訂課程彈窗 ===== -->
+  <div v-if="showCustomCourseModal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 class="font-bold mb-3">＋ 新增自訂課程</h3>
+      <div class="space-y-2">
+        <div><label class="text-xs text-gray-500">課程名稱</label><input v-model="customCourseForm.name" class="border p-2 rounded w-full"></div>
+        <div><label class="text-xs text-gray-500">價格 (¥)</label><input type="number" v-model.number="customCourseForm.price" class="border p-2 rounded w-full"></div>
+        <div><label class="text-xs text-gray-500">時長 (分)</label><input type="number" v-model.number="customCourseForm.duration" class="border p-2 rounded w-full"></div>
+        <div>
+          <label class="text-xs text-gray-500">來源</label>
+          <select v-model="customCourseForm.source" class="border p-2 rounded w-full">
+            <option value="hotpepper">HotPepper</option>
+            <option value="instore">悠樂店內</option>
+            <option value="enet">e網</option>
+            <option value="lelai_instore">樂來店內</option>
+            <option value="lelai_coupon">樂來クーポン</option>
+            <option value="custom">自訂</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-4">
+        <button @click="showCustomCourseModal=false" class="flex-1 bg-gray-200 py-2 rounded">取消</button>
+        <button @click="submitCustomCourse" class="flex-1 bg-gray-800 text-white py-2 rounded font-bold">新增</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 變更密碼彈窗 ===== -->
+  <div v-if="showChangePasswordModal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 class="font-bold mb-3">🔒 變更老闆密碼</h3>
+      <div class="space-y-2">
+        <div><label class="text-xs text-gray-500">原密碼</label><input type="password" v-model="changePasswordForm.oldPw" class="border p-2 rounded w-full"></div>
+        <div><label class="text-xs text-gray-500">新密碼（至少4碼）</label><input type="password" v-model="changePasswordForm.newPw" class="border p-2 rounded w-full"></div>
+        <div><label class="text-xs text-gray-500">再次輸入新密碼</label><input type="password" v-model="changePasswordForm.newPw2" class="border p-2 rounded w-full"></div>
+      </div>
+      <div class="flex gap-3 mt-4">
+        <button @click="showChangePasswordModal=false" class="flex-1 bg-gray-200 py-2 rounded">取消</button>
+        <button @click="submitChangePassword" class="flex-1 bg-gray-800 text-white py-2 rounded font-bold">更新密碼</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 指派待處理課程彈窗 ===== -->
+  <div v-if="showAssignPendingModal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 class="font-bold mb-3">指派待處理課程</h3>
+      <div v-if="waitingStaffs.length === 0" class="text-xs text-red-500 mb-2">目前無待班技師，請稍後再指派</div>
+      <select v-else v-model="assignPendingStaffId" class="border p-2 rounded w-full mb-4">
+        <option v-for="s in waitingStaffs" :key="s.id" :value="s.id">{{ s.staffNumber }}{{ s.isLelai ? '樂' : '' }}</option>
+      </select>
+      <div class="flex gap-3">
+        <button @click="showAssignPendingModal=false" class="flex-1 bg-gray-200 py-2 rounded">取消</button>
+        <button @click="confirmAssignPending" class="flex-1 bg-gray-800 text-white py-2 rounded font-bold" :disabled="waitingStaffs.length===0">確認指派</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ===== 全局錯誤捕獲 =====
+window.onerror = function(message, source, lineno, colno, error) {
+  const box = document.getElementById('error-box');
+  const msg = document.getElementById('error-message');
+  if (box) {
+    box.style.display = 'block';
+    msg.textContent = message + '\n' + (error?.stack || '');
+  }
+  console.error('Global error:', message, error);
+  return true;
+};
+window.addEventListener('unhandledrejection', function(e) {
+  const box = document.getElementById('error-box');
+  const msg = document.getElementById('error-message');
+  if (box) {
+    box.style.display = 'block';
+    msg.textContent = 'Unhandled Promise rejection: ' + e.reason;
+  }
+  console.error('Unhandled rejection:', e.reason);
+});
+
+const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
+
+// ===== i18n =====
+const i18n = {
+  zh: { /* 略 - 與原版相同 */ },
+  en: { /* 略 */ },
+  ja: { /* 略 */ }
+};
+
+// ===== 日本國定假日 2026 =====
+const japaneseHolidays = {
+  '2026-01-01': '元日', '2026-01-12': '成人の日', '2026-02-11': '建国記念の日',
+  '2026-02-23': '天皇誕生日', '2026-03-20': '春分の日', '2026-04-29': '昭和の日',
+  '2026-05-03': '憲法記念日', '2026-05-04': 'みどりの日', '2026-05-05': 'こどもの日',
+  '2026-05-06': '休日（振替休日）', '2026-07-20': '海の日', '2026-08-11': '山の日',
+  '2026-09-21': '敬老の日', '2026-09-22': '休日（国民の休日）', '2026-09-23': '秋分の日',
+  '2026-10-12': 'スポーツの日', '2026-11-03': '文化の日', '2026-11-23': '勤労感謝の日'
+};
+
+// ===== 輔助函數 =====
+const pad2 = n => String(n).padStart(2, '0');
+const todayKey = (d = new Date()) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+const monthKey = (d = new Date()) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}`;
+const formatTimer = (sec) => {
+  const s = Math.max(0, Math.floor(sec || 0));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${r.toString().padStart(2, '0')}`;
+};
+const formatTime = (ts) => { try { const d = new Date(ts); return d.toLocaleTimeString('zh-TW', { hour:'2-digit', minute:'2-digit' }); } catch(e) { return ''; } };
+const formatDateTime = (ts) => { try { const d = new Date(ts); return `${d.getMonth()+1}/${d.getDate()} ${d.toLocaleTimeString('zh-TW', { hour:'2-digit', minute:'2-digit' })}`; } catch(e) { return ''; } };
+
+// ===== SHA-256 雜湊（使用 Web Crypto API） =====
+async function sha256(message) {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ===== 圖片壓縮 =====
+function compressImage(file, maxSizeKB = 50) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let quality = 0.8;
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 600;
+        if (width > maxDim || height > maxDim) {
+          const ratio = Math.min(maxDim / width, maxDim / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        let dataUrl = canvas.toDataURL('image/jpeg', quality);
+        while (dataUrl.length > maxSizeKB * 1024 && quality > 0.1) {
+          quality -= 0.1;
+          dataUrl = canvas.toDataURL('image/jpeg', quality);
+        }
+        resolve(dataUrl);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ===== 創建應用 =====
+createApp({
+  setup() {
+    const lang = ref('zh');
+    const $t = (key) => i18n[lang.value]?.[key] || key;
+    const menuLang = ref('zh');
+
+    // 分店
+    const branches = ref([{ id: 'main', name: '本店' }]);
+    const currentBranch = ref('main');
+    const newBranchName = ref('');
+
+    // 所有技能
+    const allSkills = ['機器', '油壓', '指壓', '足底', '鎖骨', '肚子', '小顏', '敷石膏'];
+
+    // 課程資料（工廠函式：每間分店第一次使用時各自產生一份獨立預設課程，互不共用）
+    const defaultServiceCatalog = () => ([
+      { id: 'c1', name_zh: '機器+油推+60小顏(敷石膏)+足底 150分', name_en: 'Machine+Oil+60Face+Foot 150min', name_ja: 'マシン+オイル+60小顔+足裏 150分', totalDuration: 150, price: 18000, source: 'hotpepper', image: '', imageData: null, pairDiscount: 0, extendOption: '手技10分', extendRate: 1000, requiredSkills: [] },
+      { id: 'c2', name_zh: '帶機器40小顏+足底 80分', name_en: 'Machine+40Face+Foot 80min', name_ja: 'マシン+40小顔+足裏 80分', totalDuration: 80, price: 9800, source: 'hotpepper', image: '', imageData: null, pairDiscount: 0, extendOption: '機器10分', extendRate: 1000, requiredSkills: [] },
+      { id: 'c3', name_zh: '指壓+足底+頭 70分', name_en: 'Acupressure+Foot+Head 70min', name_ja: '指圧+足裏+頭 70分', totalDuration: 70, price: 6800, source: 'hotpepper', image: '', imageData: null, pairDiscount: 0, extendOption: '手技10分', extendRate: 1000, requiredSkills: [] },
+      { id: 'lc1', name_zh: '樂來クーポン 60分', name_en: 'Lelai Coupon 60min', name_ja: '楽来クーポン 60分', totalDuration: 60, price: 5000, source: 'lelai_coupon', image: '', imageData: null, pairDiscount: 0, extendOption: '手技10分', extendRate: 1000, requiredSkills: [] },
+    ]);
+    const serviceCatalog = ref(defaultServiceCatalog());
+
+    // 技師資料
+    const defaultSkills = () => { const sk = {}; allSkills.forEach(s => sk[s] = true); return sk; };
+    const defaultSchedule = { '一':'早','二':'早','三':'早','四':'早','五':'早','六':'休','日':'休' };
+
+    const defaultStaffs = () => ([
+      { id:1, name:'', staffNumber:'001', isLelai:false, shift:'早', expectedTime:'10:00', shiftEnd:'23:59', isLiveIn:true, lastTrain:null, status:'waiting', queueOrder:0, queueTimestamp:Date.now(), finishTimestamp:0, groupTag:null, skills:defaultSkills(), schedule:{...defaultSchedule, '一':'住店','二':'住店','三':'住店','四':'住店','五':'住店','六':'住店','日':'住店'}, review:'', reviewCounts:{today:{G:0,H:0}, month:{G:0,H:0}}, penalty:0, penaltyLog:[], totalDeduction:0, commissionOwed:0, currentService:null, serviceStartTimestamp:0, isOvertime:false, overtimeSeconds:0, overtimeDeduction:0, extendCharge:0, isLate:false, excusedLate:false, arrivalTimestamp:0, attendanceLog:[], totalServices:0, namedCount:0, eyeMaskSold:0, footCreamSold:0, prepStartTimestamp:0, outStartTimestamp:0, outDuration:0, prepDuration:0, previousStatus:'rest', room:null, supportLelai:false, bringingGuest:false, todayLiveIn:false, timer:0 },
+      { id:2, name:'', staffNumber:'002', isLelai:false, shift:'早', expectedTime:'10:00', shiftEnd:'18:00', isLiveIn:false, lastTrain:'18:00', status:'waiting', queueOrder:0, queueTimestamp:Date.now()+100, finishTimestamp:0, groupTag:null, skills:defaultSkills(), schedule:{...defaultSchedule}, review:'', reviewCounts:{today:{G:0,H:0}, month:{G:0,H:0}}, penalty:0, penaltyLog:[], totalDeduction:0, commissionOwed:0, currentService:null, serviceStartTimestamp:0, isOvertime:false, overtimeSeconds:0, overtimeDeduction:0, extendCharge:0, isLate:false, excusedLate:false, arrivalTimestamp:0, attendanceLog:[], totalServices:0, namedCount:0, eyeMaskSold:0, footCreamSold:0, prepStartTimestamp:0, outStartTimestamp:0, outDuration:0, prepDuration:0, previousStatus:'rest', room:null, supportLelai:false, bringingGuest:false, todayLiveIn:false, timer:0 },
+      { id:3, name:'', staffNumber:'003', isLelai:true, shift:'晚', expectedTime:'11:00', shiftEnd:'23:30', isLiveIn:false, lastTrain:'23:50', status:'waiting', queueOrder:0, queueTimestamp:Date.now()+200, finishTimestamp:0, groupTag:null, skills:defaultSkills(), schedule:{...defaultSchedule, '一':'晚','二':'晚','三':'晚','四':'晚','五':'晚','六':'晚','日':'休'}, review:'', reviewCounts:{today:{G:0,H:0}, month:{G:0,H:0}}, penalty:0, penaltyLog:[], totalDeduction:0, commissionOwed:0, currentService:null, serviceStartTimestamp:0, isOvertime:false, overtimeSeconds:0, overtimeDeduction:0, extendCharge:0, isLate:false, excusedLate:false, arrivalTimestamp:0, attendanceLog:[], totalServices:0, namedCount:0, eyeMaskSold:0, footCreamSold:0, prepStartTimestamp:0, outStartTimestamp:0, outDuration:0, prepDuration:0, previousStatus:'rest', room:null, supportLelai:false, bringingGuest:false, todayLiveIn:false, timer:0 },
+    ]);
+    const staffs = ref(defaultStaffs());
+
+    const defaultRoomStatus = () => {
+      const rs = {};
+      for (let i=1; i<=6; i++) rs[i] = { status: '空房', currentUser: null, previousUser: null };
+      return rs;
+    };
+    const roomStatus = ref(defaultRoomStatus());
+
+    const weekDays = ['一','二','三','四','五','六','日'];
+    const dutyClean = ref({});
+    const dutyMachine = ref({});
+    const ensureDutyComplete = () => {
+      const firstStaffId = staffs.value.length > 0 ? staffs.value[0].id : 1;
+      weekDays.forEach(d => {
+        if (!dutyClean.value[d]) dutyClean.value[d] = firstStaffId;
+        if (!dutyMachine.value[d]) dutyMachine.value[d] = firstStaffId;
+      });
+    };
+    ensureDutyComplete();
+
+    // 狀態
+    const currentPage = ref('queue');
+    const bossAuthenticated = ref(false);
+    const bossPassword = ref('');
+    const bossError = ref(false);
+    const bossPasswordHash = ref(''); // 儲存SHA-256
+    const showChangePasswordModal = ref(false);
+    const changePasswordForm = ref({ oldPw:'', newPw:'', newPw2:'' });
+    const lastActivity = ref(Date.now());
+    const usingDefaultPassword = ref(false);
+
+    // 時鐘與國定假日（先前只是空殼 ref，從未被賦值）
+    const currentDateTime = ref('');
+    const todayHoliday = ref(null);
+    function updateClock() {
+      const now = new Date();
+      const dayNames = ['日','一','二','三','四','五','六'];
+      currentDateTime.value = `${now.getFullYear()}/${pad2(now.getMonth()+1)}/${pad2(now.getDate())} (${dayNames[now.getDay()]}) ${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+      todayHoliday.value = japaneseHolidays[todayKey(now)] || null;
+    }
+
+    const filterSource = ref('all');
+    const selectedService = ref(null);
+    const addons = ref({ sheets:false, shimei:false, footCream:false, eyeMask:false });
+    const selectedPromo = ref('none');
+    const checkoutMsg = ref('');
+    const storeInfo = ref({ name:'悠楽', phone:'03-xxxx-xxxx', address:'東京都...' });
+    const newStaffNumber = ref('');
+    const newStaffIsLelai = ref(false);
+    const showCheckoutModal = ref(false);
+    const checkoutStaffId = ref(null);
+    const checkoutForm = ref({
+      payment: { name:'現金', fee:0 },
+      checkoutBy: '',
+      paymentSource: 'yuraku',
+      waiveFee: false,
+      waiveSheets: false,
+      customerName: '',
+      visitType: ''
+    });
+    const quickSourceOptions = ['自', '電', '樂'];
+    const showPenaltyModal = ref(false);
+    const penaltyTarget = ref(null);
+    const dailyLog = ref([]);
+    const pendingTasks = ref([]);
+    const showAssignPendingModal = ref(false);
+    const assignPendingTaskId = ref(null);
+    const assignPendingStaffId = ref(null);
+
+    const showSwitchModal = ref(false);
+    const switchModalStaffId = ref(null);
+    const switchModalReason = ref('2');
+    const switchReasons = [
+      { value:'1', label:'技師拒客（罰款¥5000，退至末牌）' },
+      { value:'2', label:'客人要求換人（轉交頭牌，時間重新計算）' },
+      { value:'3', label:'技能不足（轉交具備所需技能的待班技師，剩餘時間繼續）' },
+      { value:'4', label:'指名拆分（依已完成時間拆牌，剩餘由下一位承接）' },
+      { value:'5', label:'其他原因（不罰款，直接退回待班）' }
+    ];
+
+    const showExtendModal = ref(false);
+    const extendModalStaffId = ref(null);
+    const extendModalMinutes = ref(10);
+
+    const showRoomAssignModal = ref(false);
+    const roomAssignStaffId = ref(null);
+
+    const showCustomCourseModal = ref(false);
+    const customCourseForm = ref({ name:'', price:0, duration:60, source:'custom' });
+
+    // 預約管理
+    const reservations = ref([]);
+    const reservationForm = ref({ customerName:'', staffId:'', serviceId:'', time:'' });
+
+    // 會員點數
+    const members = ref([]);
+    const memberForm = ref({ name:'', phone:'' });
+
+    // 庫存
+    const defaultInventory = () => ([
+      { id:'inv1', name:'床單', quantity:20, safetyStock:10 },
+      { id:'inv2', name:'腳膏', quantity:15, safetyStock:5 },
+      { id:'inv3', name:'眼罩', quantity:30, safetyStock:10 },
+    ]);
+    const inventory = ref(defaultInventory());
+
+    // 操作日誌
+    const auditLogs = ref([]);
+
+    // 圖表實例
+    let revenueChartInstance = null;
+    let peakChartInstance = null;
+
+    // ===== 計算屬性 =====
+    const filteredCourses = computed(() => {
+      if (filterSource.value === 'all') return serviceCatalog.value;
+      return serviceCatalog.value.filter(svc => svc.source === filterSource.value);
+    });
+
+    function calculateQueue() {
+      const waiting = staffs.value.filter(s => s.status === 'waiting' && !s.supportLelai && !s.bringingGuest);
+      waiting.sort((a,b) => {
+        const ta = Math.max(a.finishTimestamp || 0, a.queueTimestamp || 0);
+        const tb = Math.max(b.finishTimestamp || 0, b.queueTimestamp || 0);
+        return ta - tb;
+      });
+      waiting.forEach((s, idx) => s.queueOrder = idx + 1);
+    }
+
+    const waitingStaffs = computed(() => {
+      // 注意：這裡不再於 computed 內部呼叫 calculateQueue() 去修改 staffs 陣列（那是反模式，
+      // 在 computed getter 裡產生副作用可能導致非預期的重複渲染）。
+      // queueOrder 已由各個狀態變更函式（forceWaiting/endOut/finishTask...等）在呼叫當下明確維護，
+      // 這裡只需單純依時間戳記排序即可得到正確順序。
+      const waiting = staffs.value.filter(s => s.status === 'waiting' && !s.supportLelai && !s.bringingGuest);
+      return waiting.slice().sort((a,b) => {
+        const ta = Math.max(a.finishTimestamp || 0, a.queueTimestamp || 0);
+        const tb = Math.max(b.finishTimestamp || 0, b.queueTimestamp || 0);
+        return ta - tb;
+      });
+    });
+    const standbyStaffs = computed(() => staffs.value.filter(s => s.status === 'standby'));
+    const outStaffs = computed(() => staffs.value.filter(s => s.status === 'out'));
+    const interviewStaffs = computed(() => staffs.value.filter(s => s.status === 'interview'));
+    const leftStaffs = computed(() => staffs.value.filter(s => s.isLelai && s.status === 'left'));
+    const allActiveStaffs = computed(() => staffs.value.filter(s => s.status !== 'rest' || s.supportLelai || s.bringingGuest));
+
+    const activeStaffName = computed(() => {
+      const s = staffs.value.find(x => x.id === checkoutStaffId.value);
+      return s ? s.name || s.staffNumber : '';
+    });
+    const availableCheckoutStaffs = computed(() => {
+      const list = staffs.value.filter(s => s.status !== 'out' && s.status !== 'rest' && !s.supportLelai && !s.bringingGuest && s.status !== 'left');
+      const fixed = [{ id: 'manager', name: '店長' }, { id: 'boss', name: '老闆' }];
+      return [...fixed, ...list.map(s => ({ id: s.id, name: s.name || s.staffNumber }))];
+    });
+
+    const calculatedTotal = computed(() => {
+      if (!selectedService.value) return 0;
+      let total = selectedService.value.price;
+      if (addons.value.sheets) total += 200;
+      if (addons.value.shimei) total += 200;
+      if (addons.value.footCream) total += 500;
+      if (addons.value.eyeMask) total += 300;
+      if (selectedPromo.value === 'pair' && selectedService.value.pairDiscount) total = Math.max(0, total - selectedService.value.pairDiscount);
+      if (selectedPromo.value === 'sevenDay') total = Math.max(0, total - 200);
+      if (selectedPromo.value === 'member') total = Math.max(0, total - 1000);
+      if (selectedPromo.value === 'scratch') total = Math.max(0, total - 1000);
+      return total;
+    });
+
+    const checkoutBaseTotal = computed(() => {
+      if (!selectedService.value) return 0;
+      let total = selectedService.value.price;
+      if (addons.value.shimei) total += 200;
+      if (addons.value.footCream) total += 500;
+      if (addons.value.eyeMask) total += 300;
+      return total;
+    });
+    const checkoutSheetsFee = computed(() => {
+      if (!selectedService.value) return 0;
+      if (addons.value.sheets && !checkoutForm.value.waiveSheets) return 200;
+      return 0;
+    });
+    const checkoutOtherAddons = computed(() => 0);
+    const checkoutPromoDiscount = computed(() => {
+      if (!selectedService.value) return 0;
+      let discount = 0;
+      if (selectedPromo.value === 'pair' && selectedService.value.pairDiscount) discount += selectedService.value.pairDiscount;
+      if (selectedPromo.value === 'sevenDay') discount += 200;
+      if (selectedPromo.value === 'member') discount += 1000;
+      if (selectedPromo.value === 'scratch') discount += 1000;
+      return discount;
+    });
+    const checkoutPaymentFee = computed(() => {
+      if (checkoutForm.value.waiveFee) return 0;
+      const base = checkoutBaseTotal.value + checkoutSheetsFee.value - checkoutPromoDiscount.value;
+      if (base <= 0) return 0;
+      const fee = checkoutForm.value.payment.fee || 0;
+      return Math.round(base * fee);
+    });
+    const checkoutFinalTotal = computed(() => {
+      const base = checkoutBaseTotal.value + checkoutSheetsFee.value - checkoutPromoDiscount.value;
+      const total = base + checkoutPaymentFee.value;
+      return total < 0 ? 0 : total;
+    });
+
+    // 營收報表
+    const todayRevenue = computed(() => {
+      const tk = todayKey();
+      return dailyLog.value.filter(l => todayKey(new Date(l.time)) === tk).reduce((sum,l)=>sum + l.amount + (l.lelaiAmount||0), 0);
+    });
+    const todayCustomers = computed(() => {
+      const tk = todayKey();
+      return dailyLog.value.filter(l => l.payment !== '超時扣款' && todayKey(new Date(l.time)) === tk).length;
+    });
+    const monthlyRevenue = computed(() => {
+      const mk = monthKey();
+      return dailyLog.value.filter(l => monthKey(new Date(l.time)) === mk).reduce((sum,l)=>sum + l.amount + (l.lelaiAmount||0), 0);
+    });
+    const monthlyCustomers = computed(() => {
+      const mk = monthKey();
+      return dailyLog.value.filter(l => l.payment !== '超時扣款' && monthKey(new Date(l.time)) === mk).length;
+    });
+    const topCourses = computed(() => {
+      const mk = monthKey();
+      const counts = {};
+      dailyLog.value.filter(l => l.payment !== '超時扣款' && monthKey(new Date(l.time)) === mk).forEach(l => {
+        (l.participants||[]).forEach(p => { counts[p.serviceName] = (counts[p.serviceName]||0)+1; });
+      });
+      return Object.entries(counts).map(([name,count]) => ({name,count})).sort((a,b)=>b.count-a.count).slice(0,5);
+    });
+    const staffPerformance = computed(() => {
+      const mk = monthKey();
+      const totals = {};
+      dailyLog.value.filter(l => l.payment !== '超時扣款' && monthKey(new Date(l.time)) === mk && l.amount > 0).forEach(l => {
+        (l.participants||[]).forEach(p => {
+          if (!totals[p.staffId]) totals[p.staffId] = { id:p.staffId, name:p.staffName, total:0 };
+          totals[p.staffId].total += l.amount;
+        });
+      });
+      return Object.values(totals).sort((a,b)=>b.total-a.total);
+    });
+    const recentLogs = computed(() => dailyLog.value.slice(0, 50));
+
+    const customerSearchText = ref('');
+    const customerSearchStaffId = ref('');
+    const customerSearchResults = computed(() => {
+      const text = customerSearchText.value.trim();
+      if (!text && !customerSearchStaffId.value) return [];
+      return dailyLog.value.filter(l => {
+        if (l.payment === '超時扣款') return false;
+        if (!l.customerName) return false;
+        if (text && !l.customerName.includes(text)) return false;
+        if (customerSearchStaffId.value && !(l.participants && l.participants[0] && l.participants[0].staffId === customerSearchStaffId.value)) return false;
+        return true;
+      }).slice(0, 100);
+    });
+
+    const todayDuty = computed(() => {
+      try {
+        const now = new Date();
+        const dayMap = { '0':'日','1':'一','2':'二','3':'三','4':'四','5':'五','6':'六' };
+        const day = dayMap[now.getDay()];
+        const cleanStaff = staffs.value.find(s => s.id === dutyClean.value[day]);
+        const machineStaff = staffs.value.find(s => s.id === dutyMachine.value[day]);
+        return {
+          clean: cleanStaff ? cleanStaff.name || cleanStaff.staffNumber : '未設定',
+          machine: machineStaff ? machineStaff.name || machineStaff.staffNumber : '未設定'
+        };
+      } catch(e) { return { clean:'未設定', machine:'未設定' }; }
+    });
+    const todaySpecial = computed(() => {
+      try {
+        const day = new Date().getDay();
+        if (day === 3) return 'recycle';
+        if (day === 6) return 'no-trash';
+        return null;
+      } catch(e) { return null; }
+    });
+
+    const customerNameSuggestions = computed(() => {
+      const names = new Set();
+      dailyLog.value.forEach(l => { if (l.customerName) names.add(l.customerName.trim()); });
+      return Array.from(names).slice(0, 50);
+    });
+
+    // ===== 輔助函數 =====
+    const getSourceLabel = (source) => {
+      const map = { 'hotpepper': 'HotPepper', 'instore': '悠樂店內', 'enet': 'e網', 'lelai_instore': '樂來店內', 'lelai_coupon': '樂來クーポン' };
+      return map[source] || source;
+    };
+    const getStatusText = (s) => {
+      if (s.supportLelai) return '🔄 支援樂來中';
+      if (s.bringingGuest) return '🚶 帶客中';
+      if (s.status === 'waiting') return '🟢 待班';
+      if (s.status === 'prep') return '🟡 準備';
+      if (s.status === 'timer') return s.isOvertime ? `🔴 超時` : '🔴 療程中';
+      if (s.status === 'standby') return '🟡 備牌';
+      if (s.status === 'interview') return '🟣 約談中';
+      if (s.status === 'out') return '🔵 外出中';
+      if (s.status === 'left') return '🔙 已回樂來';
+      return '⚪ 休息';
+    };
+    const getStatusBadgeClass = (s) => {
+      if (s.supportLelai) return 'bg-cyan-100 text-cyan-700';
+      if (s.bringingGuest) return 'bg-green-100 text-green-700';
+      switch (s.status) {
+        case 'waiting': return 'bg-green-100 text-green-700';
+        case 'prep': return 'bg-yellow-100 text-yellow-700';
+        case 'timer': return 'bg-red-100 text-red-700';
+        case 'interview': return 'bg-purple-100 text-purple-700';
+        case 'out': return 'bg-blue-100 text-blue-700';
+        case 'standby': return 'bg-gray-100 text-gray-500';
+        case 'left': return 'bg-purple-200 text-purple-800';
+        default: return 'bg-gray-100 text-gray-500';
+      }
+    };
+    const calcNamedRate = (s) => { if (s.totalServices === 0) return '0'; return Math.round((s.namedCount / s.totalServices) * 100); };
+    const monthlyAttendanceCount = (s) => { const mk = monthKey(); return (s.attendanceLog||[]).filter(d => d.startsWith(mk)).length; };
+    const isHeadOfQueue = (id) => {
+      const waiting = staffs.value.filter(s => s.status === 'waiting' && !s.supportLelai && !s.bringingGuest).sort((a,b) => a.queueOrder - b.queueOrder);
+      if (waiting.length === 0) return false;
+      return waiting[0].id === id;
+    };
+    const isLiveInToday = (staff) => {
+      try {
+        const now = new Date();
+        const dayMap = ['日','一','二','三','四','五','六'];
+        const day = dayMap[now.getDay()];
+        return staff.todayLiveIn || staff.schedule?.[day] === '住店' || staff.isLiveIn === true;
+      } catch(e) { return false; }
+    };
+    const getStaffName = (id) => { const s = staffs.value.find(x => x.id === id); return s ? s.name || s.staffNumber : '未知'; };
+    const getServiceName = (id) => { const s = serviceCatalog.value.find(x => x.id === id); return s ? s.name_zh : '未知'; };
+
+    // ===== 出勤與遲到 =====
+    function markAttendance(s) {
+      const today = todayKey();
+      if (!s.attendanceLog) s.attendanceLog = [];
+      if (!s.attendanceLog.includes(today)) {
+        s.attendanceLog.push(today);
+        const now = new Date();
+        const [eh, em] = (s.expectedTime || '10:00').split(':').map(Number);
+        const expectedMinutes = eh*60+em;
+        const currentMinutes = now.getHours()*60+now.getMinutes();
+        if (currentMinutes > expectedMinutes + 10 && !s.excusedLate) s.isLate = true;
+      }
+    }
+    function scanAttendance() {
+      const activeStatuses = ['waiting','timer','prep','standby','out','interview'];
+      staffs.value.forEach(s => {
+        if (activeStatuses.includes(s.status) || s.supportLelai || s.bringingGuest) markAttendance(s);
+      });
+    }
+    const lastRolloverDate = ref(todayKey());
+    function checkDailyRollover() {
+      const today = todayKey();
+      if (today !== lastRolloverDate.value) {
+        staffs.value.forEach(s => {
+          s.reviewCounts.today = { G:0, H:0 };
+          s.isLate = false;
+          s.excusedLate = false;
+        });
+        lastRolloverDate.value = today;
+        persistState();
+      }
+    }
+    const toggleExcused = (s) => { if (s.excusedLate) s.isLate = false; persistState(); };
+
+    // ===== 跨夜班別判斷 =====
+    function isPastShiftEnd(s, now) {
+      if (!s.shiftEnd || s.shiftEnd === '23:59') return false;
+      const [eh, em] = s.shiftEnd.split(':').map(Number);
+      const [sh, sm] = (s.expectedTime || '10:00').split(':').map(Number);
+      let endMin = eh*60+em;
+      const startMin = sh*60+sm;
+      let curMin = now.getHours()*60 + now.getMinutes();
+      if (endMin <= startMin) { endMin += 24*60; if (curMin < startMin) curMin += 24*60; }
+      return curMin >= endMin;
+    }
+
+    // ===== 自動配房 =====
+    function assignRoomAutomatically(staff) {
+      for (let r=1; r<=6; r++) {
+        if (roomStatus.value[r] && roomStatus.value[r].status === '空房') {
+          roomStatus.value[r].status = '使用中';
+          roomStatus.value[r].currentUser = staff.name || staff.staffNumber;
+          staff.room = r;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // ===== 核心功能 =====
+    const forceWaiting = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s) return;
+      s.status = 'waiting';
+      s.queueTimestamp = Date.now();
+      s.finishTimestamp = 0;
+      markAttendance(s);
+      calculateQueue();
+      persistState();
+    };
+    const selectService = (svc) => { selectedService.value = svc; selectedPromo.value = 'none'; };
+    const selectServiceById = (id) => {
+      const svc = serviceCatalog.value.find(x => x.id === id);
+      if (svc) { selectedService.value = svc; selectedPromo.value = 'none'; }
+    };
+
+    const openCustomCourse = () => {
+      customCourseForm.value = { name:'', price:0, duration:60, source:'custom' };
+      showCustomCourseModal.value = true;
+    };
+    const submitCustomCourse = () => {
+      const f = customCourseForm.value;
+      if (!f.name || !f.name.trim()) { alert('請輸入課程名稱'); return; }
+      if (!f.price || f.price <= 0) { alert('請輸入有效價格'); return; }
+      if (!f.duration || f.duration <= 0) { alert('請輸入有效時長'); return; }
+      serviceCatalog.value.push({ id:'c'+Date.now(), name_zh:f.name, name_en:f.name, name_ja:f.name, totalDuration:f.duration, price:f.price, source:f.source, image:'', imageData:null, pairDiscount:0, extendOption:'手技10分', extendRate:1000, requiredSkills:[] });
+      showCustomCourseModal.value = false;
+      addAuditLog('新增自訂課程：'+f.name);
+      persistState();
+    };
+
+    const setRoomStatus = (room, status) => {
+      if (!roomStatus.value[room]) roomStatus.value[room] = { status: '空房', currentUser: null, previousUser: null };
+      roomStatus.value[room].status = status;
+      if (status === '空房') roomStatus.value[room].currentUser = null;
+      persistState();
+    };
+
+    const setAllSkills = (staffId, value) => {
+      const s = staffs.value.find(x => x.id === staffId);
+      if (!s) return;
+      allSkills.forEach(skill => { s.skills[skill] = value; });
+      persistState();
+    };
+    const saveSkills = () => { persistState(); alert('所有技能已儲存！'); };
+    const toggleRequiredSkill = (svc, skill) => {
+      if (!svc.requiredSkills) svc.requiredSkills = [];
+      const idx = svc.requiredSkills.indexOf(skill);
+      if (idx >= 0) svc.requiredSkills.splice(idx, 1);
+      else svc.requiredSkills.push(skill);
+      persistState();
+    };
+
+    const startOut = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s) return;
+      if (s.status === 'timer' || s.status === 'prep' || s.status === 'interview') { alert('技師正在服務、準備或約談中，無法外出'); return; }
+      if (isHeadOfQueue(id)) { alert('頭牌不能外出，請先由其他技師接替'); return; }
+      s.previousStatus = s.status;
+      s.status = 'out';
+      s.outStartTimestamp = Date.now();
+      persistState();
+      addAuditLog(`技師 ${s.staffNumber} 外出`);
+    };
+    const endOut = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s || s.status !== 'out') return;
+      const prev = s.previousStatus || 'rest';
+      s.status = prev;
+      s.outStartTimestamp = 0;
+      s.outDuration = 0;
+      if (prev === 'waiting') { s.queueTimestamp = Date.now(); markAttendance(s); }
+      calculateQueue();
+      persistState();
+      addAuditLog(`技師 ${s.staffNumber} 返回`);
+    };
+    const startInterview = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s) return;
+      if (s.status === 'timer' || s.status === 'prep') { alert('技師正在服務中，無法約談'); return; }
+      s.status = 'interview';
+      persistState();
+      addAuditLog(`技師 ${s.staffNumber} 開始約談`);
+    };
+    const endInterview = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s || s.status !== 'interview') return;
+      const now = new Date();
+      const [h, m] = s.expectedTime.split(':').map(Number);
+      const expectedMinutes = h * 60 + m;
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      if (currentMinutes >= expectedMinutes) {
+        s.status = 'waiting';
+        s.queueTimestamp = Date.now();
+        markAttendance(s);
+      } else {
+        s.status = 'standby';
+        s.arrivalTimestamp = Date.now();
+      }
+      calculateQueue();
+      persistState();
+      addAuditLog(`技師 ${s.staffNumber} 結束約談`);
+    };
+    const startSupport = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s || s.status !== 'waiting' || s.isLelai) return;
+      s.supportLelai = true;
+      s.previousStatus = s.status;
+      s.status = 'support';
+      calculateQueue();
+      persistState();
+      addAuditLog(`技師 ${s.staffNumber} 支援樂來`);
+    };
+    const endSupport = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s || !s.supportLelai) return;
+      s.supportLelai = false;
+      s.status = s.previousStatus || 'waiting';
+      s.previousStatus = null;
+      if (s.status === 'waiting') { s.queueTimestamp = Date.now(); markAttendance(s); }
+      calculateQueue();
+      persistState();
+      addAuditLog(`技師 ${s.staffNumber} 取消支援樂來`);
+    };
+    const startBring = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s || s.status !== 'waiting' || !isHeadOfQueue(id) || s.isLelai) return;
+      s.bringingGuest = true;
+      s.previousStatus = s.status;
+      s.status = 'bringing';
+      calculateQueue();
+      persistState();
+      addAuditLog(`技師 ${s.staffNumber} 帶客`);
+    };
+    const endBring = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s || !s.bringingGuest) return;
+      s.bringingGuest = false;
+      s.status = s.previousStatus || 'waiting';
+      s.previousStatus = null;
+      if (s.status === 'waiting') { s.queueTimestamp = Date.now(); markAttendance(s); }
+      calculateQueue();
+      persistState();
+      addAuditLog(`技師 ${s.staffNumber} 結束帶客`);
+    };
+    const goBackLelai = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s || !s.isLelai || s.status !== 'waiting') return;
+      if (confirm(`確定要讓 ${s.staffNumber} 號樂來技師離場嗎？`)) {
+        s.status = 'left';
+        calculateQueue();
+        persistState();
+        addAuditLog(`樂來技師 ${s.staffNumber} 離場`);
+        alert(`編號 ${s.staffNumber} 已回到樂來，數據已保留。`);
+      }
+    };
+    const recallFromLelai = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s || !s.isLelai || s.status !== 'left') return;
+      s.status = 'waiting';
+      s.queueTimestamp = Date.now();
+      s.finishTimestamp = 0;
+      markAttendance(s);
+      calculateQueue();
+      persistState();
+      addAuditLog(`召回樂來技師 ${s.staffNumber}`);
+      alert(`已召回 ${s.staffNumber} 號樂來技師。`);
+    };
+
+    // ===== 換技師（修正版） =====
+    const openSwitchModal = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s || s.status !== 'timer') return;
+      switchModalStaffId.value = id;
+      switchModalReason.value = '2';
+      showSwitchModal.value = true;
+    };
+    const confirmSwitchStaff = () => {
+      const id = switchModalStaffId.value;
+      const reason = switchModalReason.value;
+      showSwitchModal.value = false;
+      executeSwitchStaff(id, reason);
+    };
+
+    function executeSwitchStaff(id, reason) {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s || s.status !== 'timer' || !s.currentService) return;
+      const currentSvc = s.currentService;
+      const remainingTime = s.timer || 0;
+      const totalDuration = currentSvc.duration * 60;
+      const elapsed = totalDuration - remainingTime;
+
+      const sortByQueue = (list) => list.slice().sort((a,b) => (Math.max(a.finishTimestamp||0,a.queueTimestamp||0)) - (Math.max(b.finishTimestamp||0,b.queueTimestamp||0)));
+
+      let nextStaff = null;
+      let newDuration = 0;
+
+      if (reason === '2') {
+        const waiting = sortByQueue(staffs.value.filter(st => st.status === 'waiting' && st.id !== s.id && !st.supportLelai && !st.bringingGuest));
+        if (waiting.length === 0) { alert('沒有其他待班技師可接，操作已取消'); return; }
+        nextStaff = waiting[0];
+        newDuration = currentSvc.duration;
+      } else if (reason === '3') {
+        const requiredSkills = currentSvc.requiredSkills || [];
+        const waiting = sortByQueue(staffs.value.filter(st => st.status === 'waiting' && st.id !== s.id && !st.supportLelai && !st.bringingGuest));
+        nextStaff = waiting.find(st => requiredSkills.every(sk => st.skills[sk]));
+        if (!nextStaff) { alert('沒有具備所需技能的待班技師，操作已取消'); return; }
+        newDuration = Math.max(1, Math.floor(remainingTime / 60));
+      } else if (reason === '4') {
+        const doneMinutes = Math.ceil(elapsed / 60);
+        const totalMinutes = currentSvc.duration;
+        if (doneMinutes >= totalMinutes) { alert('課程已完成，無需拆分'); return; }
+        const waiting = sortByQueue(staffs.value.filter(st => st.status === 'waiting' && st.id !== s.id && !st.supportLelai && !st.bringingGuest));
+        if (waiting.length > 0) {
+          nextStaff = waiting[0];
+          newDuration = totalMinutes - doneMinutes;
+        } else {
+          pendingTasks.value.push({
+            id: Date.now() + Math.random(),
+            serviceName: currentSvc.name,
+            duration: totalMinutes - doneMinutes,
+            price: currentSvc.price,
+            overtimeRate: currentSvc.overtimeRate || 1000,
+            extendRate: currentSvc.extendRate || 1000,
+            requiredSkills: currentSvc.requiredSkills || [],
+            fromStaffNumber: s.staffNumber,
+            createdAt: Date.now(),
+            logEntryId: currentSvc.logEntryId
+          });
+          alert(`已拆牌，${s.staffNumber} 完成 ${doneMinutes} 分鐘。目前無待班技師，剩餘 ${totalMinutes-doneMinutes} 分鐘已存入「待處理課程」，稍後可指派。`);
+        }
+      }
+      // reason 1 或 5 不需下一位
+
+      // 共通處理
+      let deduction = s.overtimeDeduction || 0;
+      if (deduction > 0) {
+        s.totalDeduction = (s.totalDeduction || 0) + deduction;
+        dailyLog.value.unshift({
+          id: Date.now() + Math.random(), time: Date.now(), payment: '超時扣款', checkoutBy: '系統', paymentSource: 'yuraku',
+          amount: -deduction, isLelaiPayment: false,
+          participants: [{ staffId: s.id, staffName: s.name || s.staffNumber, serviceName: '超時扣款' }], overtimeDeduction: deduction
+        });
+      }
+      if (s.room) {
+        roomStatus.value[s.room].status = '空房';
+        roomStatus.value[s.room].previousUser = s.name || s.staffNumber;
+        roomStatus.value[s.room].currentUser = null;
+        s.room = null;
+      }
+
+      if (reason === '1') {
+        s.penalty = (s.penalty || 0) + 5000;
+        s.penaltyLog.push({ time: Date.now(), reason: '無正當理由拒客', amount: 5000 });
+        alert(`${s.name || s.staffNumber} 因無故拒客，罰款 5000 日圓`);
+        addAuditLog(`技師 ${s.staffNumber} 拒客罰款5000`);
+      }
+
+      s.status = 'waiting';
+      s.queueTimestamp = Date.now();
+      s.finishTimestamp = 0;
+      s.timer = 0;
+      s.serviceStartTimestamp = 0;
+      s.isOvertime = false;
+      s.overtimeSeconds = 0;
+      s.overtimeDeduction = 0;
+      s.currentService = null;
+
+      if (nextStaff) {
+        nextStaff.status = 'timer';
+        nextStaff.currentService = {
+          name: currentSvc.name,
+          duration: newDuration,
+          price: currentSvc.price,
+          overtimeRate: currentSvc.overtimeRate || 1000,
+          extendRate: currentSvc.extendRate || 1000,
+          requiredSkills: currentSvc.requiredSkills || [],
+          logEntryId: currentSvc.logEntryId
+        };
+        nextStaff.serviceStartTimestamp = Date.now();
+        nextStaff.isOvertime = false;
+        nextStaff.overtimeSeconds = 0;
+        nextStaff.overtimeDeduction = 0;
+        if (!assignRoomAutomatically(nextStaff)) alert('沒有空房可分配，請手動指派');
+        alert(`已將課程轉給 ${nextStaff.staffNumber} 號。`);
+        addAuditLog(`換技師：${s.staffNumber} -> ${nextStaff.staffNumber}，原因：${switchReasons.find(r=>r.value===reason)?.label}`);
+      } else {
+        addAuditLog(`技師 ${s.staffNumber} 換人（無承接者），原因：${switchReasons.find(r=>r.value===reason)?.label}`);
+      }
+
+      calculateQueue();
+      persistState();
+    }
+
+    // ===== 待處理課程指派 =====
+    const openAssignPendingModal = (taskId) => {
+      assignPendingTaskId.value = taskId;
+      const first = waitingStaffs.value[0];
+      assignPendingStaffId.value = first ? first.id : null;
+      showAssignPendingModal.value = true;
+    };
+    const confirmAssignPending = () => {
+      const task = pendingTasks.value.find(t => t.id === assignPendingTaskId.value);
+      const staff = staffs.value.find(s => s.id === assignPendingStaffId.value);
+      if (!task || !staff) { alert('請選擇技師'); return; }
+      if (staff.status !== 'waiting') { alert('該技師目前非待班狀態'); return; }
+      staff.status = 'timer';
+      staff.currentService = { name: task.serviceName, duration: task.duration, price: task.price, overtimeRate: task.overtimeRate, extendRate: task.extendRate, requiredSkills: task.requiredSkills || [], logEntryId: task.logEntryId };
+      staff.serviceStartTimestamp = Date.now();
+      staff.isOvertime = false; staff.overtimeSeconds = 0; staff.overtimeDeduction = 0;
+      if (!assignRoomAutomatically(staff)) alert('沒有空房可分配，請手動指派');
+      pendingTasks.value = pendingTasks.value.filter(t => t.id !== task.id);
+      showAssignPendingModal.value = false;
+      calculateQueue();
+      persistState();
+      addAuditLog(`指派待處理課程給 ${staff.staffNumber}`);
+    };
+
+    // ===== 結帳 =====
+    const openCheckoutFromMenu = () => {
+      if (!selectedService.value) { alert('請先選擇課程'); return; }
+      const head = waitingStaffs.value[0];
+      if (head) {
+        checkoutStaffId.value = head.id;
+      } else {
+        // 無待班技師，將課程暫存
+        const task = {
+          id: Date.now() + Math.random(),
+          serviceName: selectedService.value.name_zh,
+          duration: selectedService.value.totalDuration,
+          price: selectedService.value.price,
+          overtimeRate: 1000,
+          extendRate: selectedService.value.extendRate || 1000,
+          requiredSkills: selectedService.value.requiredSkills || [],
+          fromStaffNumber: '系統',
+          createdAt: Date.now(),
+          logEntryId: null
+        };
+        pendingTasks.value.push(task);
+        alert('目前無待班技師，課程已存入待處理清單。');
+        return;
+      }
+      checkoutForm.value = { payment: { name:'現金', fee:0 }, checkoutBy: activeStaffName.value || '', paymentSource: 'yuraku', waiveFee: false, waiveSheets: false, customerName: '', visitType: '' };
+      showCheckoutModal.value = true;
+    };
+    const openMenu = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s) return;
+      checkoutStaffId.value = id;
+      checkoutForm.value = { payment: { name:'現金', fee:0 }, checkoutBy: s.name || s.staffNumber || '', paymentSource: 'yuraku', waiveFee: false, waiveSheets: false, customerName: '', visitType: '' };
+      showCheckoutModal.value = true;
+    };
+    const confirmCheckout = () => {
+      const s = staffs.value.find(x => x.id === checkoutStaffId.value);
+      if (!s) return;
+      if (!s.currentService) {
+        if (!selectedService.value) { alert('請先選擇課程'); return; }
+        s.currentService = {
+          name: selectedService.value.name_zh,
+          duration: selectedService.value.totalDuration,
+          price: selectedService.value.price,
+          overtimeRate: 1000,
+          extendRate: selectedService.value.extendRate || 1000,
+          requiredSkills: selectedService.value.requiredSkills || []
+        };
+      }
+      // 防衛判斷
+      if (!s.currentService) { alert('課程資料錯誤，請重新選擇'); return; }
+
+      // 會員點數折抵：結帳前先驗證客人是否為會員、點數是否足夠，避免點數只增不減的帳務漏洞
+      const MEMBER_REDEEM_POINTS = 1000; // 折¥1000 對應扣除的點數
+      let redeemingMember = null;
+      if (selectedPromo.value === 'member') {
+        const name = (checkoutForm.value.customerName || '').trim();
+        if (!name) { alert('選擇了「會員點數折抵」，請先填寫客人姓名以核對會員身分'); return; }
+        redeemingMember = members.value.find(m => m.name === name);
+        if (!redeemingMember) { alert(`查無會員「${name}」，無法套用點數折抵，請確認姓名或改用其他優惠`); return; }
+        if (redeemingMember.points < MEMBER_REDEEM_POINTS) { alert(`會員「${name}」目前僅有 ${redeemingMember.points} 點，不足 ${MEMBER_REDEEM_POINTS} 點無法折抵，請改用其他優惠`); return; }
+      }
+
+      const finalAmount = checkoutFinalTotal.value;
+      const isLelaiPayment = checkoutForm.value.paymentSource === 'lelai';
+      const commission = Math.round(s.currentService.price * 0.5);
+
+      const eligible = waitingStaffs.value.filter(st => st.id !== s.id);
+      if (eligible.length === 0) {
+        s.commissionOwed = (s.commissionOwed || 0) + commission;
+        alert(`抽成 ¥${commission}：目前無其他待班技師，暫記入 ${s.staffNumber} 自己帳戶，請留意調整。`);
+      } else if (commission < 1000) {
+        const last = eligible[eligible.length - 1];
+        last.commissionOwed = (last.commissionOwed || 0) + commission;
+        alert(`抽成 ¥${commission} 低於1000，由末牌 ${last.staffNumber} 承接。`);
+      } else {
+        const first = eligible[0];
+        first.commissionOwed = (first.commissionOwed || 0) + commission;
+        alert(`抽成 ¥${commission} 高於1000，由頭牌 ${first.staffNumber} 承接。`);
+      }
+
+      const participants = [{ staffId: s.id, staffName: s.name || s.staffNumber, serviceName: s.currentService.name, extendCharge: s.extendCharge || 0 }];
+      const checkoutEntryId = Date.now() + Math.random();
+      dailyLog.value.unshift({
+        id: checkoutEntryId,
+        time: Date.now(),
+        endTime: null,
+        payment: checkoutForm.value.payment.name,
+        checkoutBy: checkoutForm.value.checkoutBy || s.name || s.staffNumber,
+        paymentSource: checkoutForm.value.paymentSource || 'yuraku',
+        amount: isLelaiPayment ? 0 : finalAmount,
+        lelaiAmount: isLelaiPayment ? finalAmount : 0,
+        isLelaiPayment,
+        participants,
+        extendCharge: s.extendCharge || 0,
+        waiveFee: checkoutForm.value.waiveFee,
+        waiveSheets: checkoutForm.value.waiveSheets,
+        commission,
+        customerName: (checkoutForm.value.customerName || '').trim(),
+        visitType: checkoutForm.value.visitType || ''
+      });
+      s.currentService.logEntryId = checkoutEntryId;
+
+      // 累計統計
+      s.totalServices += 1;
+      if (addons.value.shimei) s.namedCount += 1;
+      if (addons.value.footCream) s.footCreamSold += 1;
+      if (addons.value.eyeMask) s.eyeMaskSold += 1;
+
+      // 會員點數折抵：扣除已於上方驗證過的點數
+      if (redeemingMember) {
+        redeemingMember.points = Math.max(0, redeemingMember.points - MEMBER_REDEEM_POINTS);
+      }
+      // 會員點數累積：若客人有會員且填寫姓名，依消費金額累積點數
+      if (checkoutForm.value.customerName) {
+        const member = redeemingMember || members.value.find(m => m.name === checkoutForm.value.customerName);
+        if (member) {
+          member.points += Math.floor(finalAmount / 100);
+        }
+      }
+
+      s.status = 'prep';
+      s.prepStartTimestamp = Date.now();
+      s.extendCharge = 0;
+      showCheckoutModal.value = false;
+      checkoutStaffId.value = null; // 重置
+      selectedService.value = null;
+      addons.value = { sheets:false, shimei:false, footCream:false, eyeMask:false };
+      selectedPromo.value = 'none';
+      checkoutMsg.value = `✅ 結帳成功 ${isLelaiPayment ? '(樂來收款)' : '¥'+finalAmount.toLocaleString()}`;
+      setTimeout(() => checkoutMsg.value = '', 3000);
+      persistState();
+      addAuditLog(`結帳 ${s.staffNumber}，金額 ${finalAmount}`);
+      openRoomAssignModal(s.id);
+    };
+
+    // ===== 房間指派彈窗 =====
+    const openRoomAssignModal = (staffId) => {
+      roomAssignStaffId.value = staffId;
+      showRoomAssignModal.value = true;
+    };
+    const chooseRoom = (r) => {
+      const s = staffs.value.find(x => x.id === roomAssignStaffId.value);
+      if (!s) { showRoomAssignModal.value = false; return; }
+      if (roomStatus.value[r].status !== '空房') { alert('該房間已被使用'); return; }
+      roomStatus.value[r].status = '使用中';
+      roomStatus.value[r].currentUser = s.name || s.staffNumber;
+      s.room = r;
+      showRoomAssignModal.value = false;
+      persistState();
+    };
+    const skipRoomAssign = () => { showRoomAssignModal.value = false; };
+
+    // ===== 計時、完工、延長 =====
+    const startTimer = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s) { alert('找不到技師'); return; }
+      if (!s.currentService) { alert('尚未選擇課程，無法開始計時'); return; }
+      s.status = 'timer';
+      s.serviceStartTimestamp = Date.now();
+      s.isOvertime = false;
+      s.overtimeSeconds = 0;
+      s.overtimeDeduction = 0;
+      s.prepStartTimestamp = 0;
+      persistState();
+      addAuditLog(`技師 ${s.staffNumber} 開始服務`);
+    };
+    const finishTask = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s) return;
+      const openEntry = (s.currentService && s.currentService.logEntryId != null)
+        ? dailyLog.value.find(l => l.id === s.currentService.logEntryId)
+        : dailyLog.value.find(l => l.payment !== '超時扣款' && l.endTime == null && l.participants && l.participants[0] && l.participants[0].staffId === s.id);
+      if (openEntry) openEntry.endTime = Date.now();
+      let deduction = s.overtimeDeduction || 0;
+      if (deduction > 0) {
+        s.totalDeduction = (s.totalDeduction || 0) + deduction;
+        dailyLog.value.unshift({
+          id: Date.now() + Math.random(), time: Date.now(), payment: '超時扣款', checkoutBy: '系統', paymentSource: 'yuraku',
+          amount: -deduction, isLelaiPayment: false,
+          participants: [{ staffId: s.id, staffName: s.name || s.staffNumber, serviceName: '超時扣款' }], overtimeDeduction: deduction
+        });
+      }
+      if (s.room) {
+        roomStatus.value[s.room].status = '空房';
+        roomStatus.value[s.room].previousUser = s.name || s.staffNumber;
+        roomStatus.value[s.room].currentUser = null;
+        s.room = null;
+      }
+      s.finishTimestamp = Date.now();
+      const now = new Date();
+      if (isPastShiftEnd(s, now)) {
+        s.status = 'standby';
+      } else {
+        s.status = 'waiting';
+        s.queueTimestamp = Date.now();
+      }
+      s.timer = 0;
+      s.serviceStartTimestamp = 0;
+      s.isOvertime = false;
+      s.overtimeSeconds = 0;
+      s.overtimeDeduction = 0;
+      s.currentService = null;
+      calculateQueue();
+      persistState();
+      addAuditLog(`技師 ${s.staffNumber} 完工`);
+    };
+
+    const openExtendModal = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (!s || s.status !== 'timer' || !s.currentService) { alert('目前沒有進行中的療程可延長'); return; }
+      extendModalStaffId.value = id;
+      extendModalMinutes.value = 10;
+      showExtendModal.value = true;
+    };
+    const confirmExtend = () => {
+      const id = extendModalStaffId.value;
+      const minutes = extendModalMinutes.value;
+      showExtendModal.value = false;
+      const s = staffs.value.find(x => x.id === id);
+      if (!s || !s.currentService) return;
+      if (!minutes || minutes <= 0) { alert('請輸入有效的延長分鐘數'); return; }
+      s.currentService.duration += minutes;
+      const elapsed = (Date.now() - s.serviceStartTimestamp) / 1000;
+      const newTotal = s.currentService.duration * 60;
+      const remain = newTotal - elapsed;
+      s.timer = remain > 0 ? remain : 0;
+      s.isOvertime = false;
+      s.overtimeSeconds = 0;
+      s.overtimeDeduction = 0;
+      const rate = s.currentService.extendRate || 1000;
+      const fee = Math.round(minutes / 10 * rate);
+      s.extendCharge = (s.extendCharge || 0) + fee;
+      persistState();
+      addAuditLog(`技師 ${s.staffNumber} 延長 ${minutes} 分鐘`);
+      alert(`已延長 ${minutes} 分鐘，費用 ¥${fee}`);
+    };
+
+    const recordReview = (s) => {
+      if (!s.review) return;
+      let g = 0, h = 0;
+      if (s.review === 'G') g = 1;
+      else if (s.review === 'H') h = 1;
+      else if (s.review === 'GH') { g = 1; h = 1; }
+      s.reviewCounts.today.G += g;
+      s.reviewCounts.today.H += h;
+      s.reviewCounts.month.G += g;
+      s.reviewCounts.month.H += h;
+      persistState();
+    };
+    const showPenaltyDetail = (id) => {
+      const s = staffs.value.find(x => x.id === id);
+      if (s) { penaltyTarget.value = s; showPenaltyModal.value = true; }
+    };
+
+    // ===== 清理 =====
+    const clearOldLogs = () => {
+      if (!confirm('確定要清除30天前的交易紀錄嗎？此動作無法復原。')) return;
+      const cutoff = Date.now() - 30*24*60*60*1000;
+      dailyLog.value = dailyLog.value.filter(l => l.time >= cutoff);
+      persistState();
+      alert('已清除30天前的紀錄');
+      addAuditLog('清除30天前交易紀錄');
+    };
+
+    // ===== 老闆功能 =====
+    const addStaff = () => {
+      if (!newStaffNumber.value) { alert('請輸入編號'); return; }
+      const id = Math.max(...staffs.value.map(s => s.id)) + 1;
+      const sch = {};
+      weekDays.forEach(d => sch[d] = '早');
+      staffs.value.push({
+        id, name: '', staffNumber: newStaffNumber.value, isLelai: newStaffIsLelai.value,
+        shift:'早', expectedTime:'10:00', shiftEnd:'18:00', isLiveIn:false, lastTrain:'18:00',
+        status:'waiting', queueOrder:0, queueTimestamp:Date.now(), finishTimestamp:0, groupTag:null,
+        skills:defaultSkills(), schedule:sch, review:'', reviewCounts:{today:{G:0,H:0}, month:{G:0,H:0}},
+        penalty:0, penaltyLog:[], totalDeduction:0, currentService:null, serviceStartTimestamp:0,
+        isOvertime:false, overtimeSeconds:0, overtimeDeduction:0, extendCharge:0,
+        isLate:false, excusedLate:false, arrivalTimestamp:0, attendanceLog:[], totalServices:0,
+        namedCount:0, eyeMaskSold:0, footCreamSold:0, prepStartTimestamp:0, outStartTimestamp:0, outDuration:0, prepDuration:0, previousStatus:'rest', room:null,
+        supportLelai:false, bringingGuest:false, todayLiveIn:false, timer:0
+      });
+      newStaffNumber.value = '';
+      newStaffIsLelai.value = false;
+      calculateQueue();
+      persistState();
+      addAuditLog(`新增技師 ${staffs.value[staffs.value.length-1].staffNumber}`);
+    };
+    const removeStaff = (id) => {
+      if (!confirm('確定要刪除技師嗎？')) return;
+      const s = staffs.value.find(x => x.id === id);
+      staffs.value = staffs.value.filter(s => s.id !== id);
+      calculateQueue();
+      persistState();
+      if (s) addAuditLog(`刪除技師 ${s.staffNumber}`);
+    };
+    const saveDuty = () => { persistState(); alert('值日已儲存'); addAuditLog('儲存值日設定'); };
+    const saveSchedule = () => { persistState(); alert('排班已儲存'); addAuditLog('儲存排班'); };
+    const saveStoreInfo = () => { persistState(); alert('店內資訊已儲存'); addAuditLog('儲存店內資訊'); };
+    const removeCourse = (idx) => {
+      if (!confirm('確定要刪除此課程嗎？此動作無法復原。')) return;
+      const name = serviceCatalog.value[idx].name_zh;
+      serviceCatalog.value.splice(idx, 1);
+      persistState();
+      addAuditLog(`刪除課程 ${name}`);
+    };
+    const saveCourses = () => { persistState(); alert('課程已儲存'); addAuditLog('儲存課程清單'); };
+    const handleImageUpload = async (event, idx) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) { alert('請上傳圖片檔案'); return; }
+      try {
+        const dataUrl = await compressImage(file, 50);
+        serviceCatalog.value[idx].imageData = dataUrl;
+        serviceCatalog.value[idx].image = '';
+        persistState();
+        addAuditLog(`更新課程圖片 ${serviceCatalog.value[idx].name_zh}`);
+        alert('圖片上傳成功！');
+      } catch (err) {
+        alert('圖片上傳失敗：' + err.message);
+      }
+      event.target.value = '';
+    };
+    const removeImage = (idx) => {
+      serviceCatalog.value[idx].imageData = null;
+      serviceCatalog.value[idx].image = '';
+      persistState();
+    };
+
+    // ===== 分店切換 =====
+    const switchBranch = () => {
+      const newBranchId = currentBranch.value;
+      if (newBranchId === activeBranchId) return;
+      // 先把「切換前」那間分店目前畫面上的資料立即存檔（不用 debounce，避免來不及存就切走）
+      persistBranchData(activeBranchId);
+      // 再載入（或初始化）新分店的獨立資料
+      loadBranchData(newBranchId);
+      persistGlobal();
+      addAuditLog(`切換至分店：${branches.value.find(b=>b.id===newBranchId)?.name || newBranchId}`);
+    };
+    const addBranch = () => {
+      if (!newBranchName.value.trim()) return;
+      branches.value.push({ id: 'branch'+Date.now(), name: newBranchName.value.trim() });
+      newBranchName.value = '';
+      persistGlobal();
+    };
+
+    // ===== 預約管理 =====
+    const addReservation = () => {
+      const f = reservationForm.value;
+      if (!f.customerName || !f.staffId || !f.serviceId || !f.time) { alert('請填寫完整預約資訊'); return; }
+      reservations.value.push({
+        id: Date.now(),
+        customerName: f.customerName,
+        staffId: f.staffId,
+        serviceId: f.serviceId,
+        time: new Date(f.time).getTime()
+      });
+      reservationForm.value = { customerName:'', staffId:'', serviceId:'', time:'' };
+      persistState();
+      addAuditLog(`新增預約：${f.customerName}`);
+    };
+    const cancelReservation = (id) => {
+      if (!confirm('取消此預約？')) return;
+      const r = reservations.value.find(x => x.id === id);
+      reservations.value = reservations.value.filter(x => x.id !== id);
+      persistState();
+      if (r) addAuditLog(`取消預約：${r.customerName}`);
+    };
+
+    // ===== 會員點數 =====
+    const addMember = () => {
+      if (!memberForm.value.name || !memberForm.value.phone) { alert('請填寫姓名與電話'); return; }
+      members.value.push({ id: Date.now(), name: memberForm.value.name, phone: memberForm.value.phone, points: 0 });
+      memberForm.value = { name:'', phone:'' };
+      persistState();
+      addAuditLog(`新增會員 ${members.value[members.value.length-1].name}`);
+    };
+    const addPoints = (id, pts) => {
+      const m = members.value.find(x => x.id === id);
+      if (m) { m.points += pts; persistState(); }
+    };
+    const deductPoints = (id, pts) => {
+      const m = members.value.find(x => x.id === id);
+      if (m) { m.points = Math.max(0, m.points - pts); persistState(); }
+    };
+    const deleteMember = (id) => {
+      if (!confirm('刪除此會員？')) return;
+      members.value = members.value.filter(x => x.id !== id);
+      persistState();
+    };
+
+    // ===== 庫存管理 =====
+    const adjustInventory = (id, delta) => {
+      const item = inventory.value.find(x => x.id === id);
+      if (item) { item.quantity = Math.max(0, item.quantity + delta); persistState(); }
+    };
+    const setInventory = (id, val) => {
+      const item = inventory.value.find(x => x.id === id);
+      if (item) { item.quantity = Math.max(0, val); persistState(); }
+    };
+
+    // ===== 操作日誌 =====
+    const addAuditLog = (action) => {
+      auditLogs.value.unshift({ id: Date.now() + Math.random(), time: Date.now(), action, user: '老闆' });
+      if (auditLogs.value.length > 200) auditLogs.value = auditLogs.value.slice(0, 200);
+      persistState();
+    };
+
+    // ===== 匯出 Excel =====
+    const exportExcel = () => {
+      if (typeof XLSX === 'undefined') { alert('請確認 SheetJS 已載入'); return; }
+      const data = dailyLog.value.map(l => ({
+        '時間': formatDateTime(l.time),
+        '結束時間': l.endTime ? formatDateTime(l.endTime) : '',
+        '客人': l.customerName || '',
+        '初/回': l.visitType === 'repeat' ? '回頭' : (l.visitType === 'first' ? '初次' : ''),
+        '技師': l.participants ? l.participants.map(p => p.staffName).join(',') : '',
+        '課程': l.participants ? l.participants.map(p => p.serviceName).join(',') : '',
+        '金額': l.amount + (l.lelaiAmount||0),
+        '付款方式': l.payment,
+        '收付人': l.checkoutBy,
+        '抽成': l.commission || 0,
+        '延長費': l.extendCharge || 0,
+        '來源': l.isLelaiPayment ? '樂來' : '悠樂'
+      }));
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '交易紀錄');
+      XLSX.writeFile(wb, `交易紀錄_${todayKey()}.xlsx`);
+    };
+
+    // ===== 完整備份／還原（涵蓋全域設定 + 所有分店資料，取代舊版只匯出單一 key 的作法） =====
+    function exportBackup() {
+      try {
+        const backup = { version: 2, exportedAt: Date.now(), global: null, branches: {} };
+        const globalRaw = localStorage.getItem(GLOBAL_KEY);
+        backup.global = globalRaw ? JSON.parse(globalRaw) : {
+          branches: branches.value, bossPasswordHash: bossPasswordHash.value, currentBranch: currentBranch.value
+        };
+        const branchList = (backup.global && backup.global.branches && backup.global.branches.length > 0) ? backup.global.branches : branches.value;
+        branchList.forEach(b => {
+          const raw = localStorage.getItem(branchStorageKey(b.id));
+          if (raw) { try { backup.branches[b.id] = JSON.parse(raw); } catch(e) { /* 忽略單一分店解析錯誤，不中斷整體備份 */ } }
+        });
+        const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pos_backup_${todayKey()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch(e) { alert('匯出失敗：' + e.message); }
+    }
+
+    function handleImportBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (!confirm('匯入將覆蓋目前所有分店的資料，確定要繼續嗎？此動作無法復原。')) return;
+          if (data.version === 2 && data.global) {
+            // 新版備份格式（v2）：包含全域設定與每間分店各自的獨立資料
+            localStorage.setItem(GLOBAL_KEY, JSON.stringify(data.global));
+            Object.entries(data.branches || {}).forEach(([branchId, branchData]) => {
+              localStorage.setItem(branchStorageKey(branchId), JSON.stringify(branchData));
+            });
+          } else {
+            // 相容舊版單店備份格式：全部資料歸入「本店」(main)
+            localStorage.setItem(GLOBAL_KEY, JSON.stringify({
+              branches: data.branches && data.branches.length > 0 ? data.branches : [{ id:'main', name:'本店' }],
+              bossPasswordHash: data.bossPasswordHash || ''
+            }));
+            localStorage.setItem(branchStorageKey('main'), JSON.stringify(data));
+          }
+          location.reload();
+        } catch(err) { alert('匯入失敗，檔案格式錯誤'); }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    // ===== 資料持久化 =====
+    // 資料分兩層儲存：
+    // 1. 全域設定（pos_meta）：分店清單、老闆密碼、閒置登出用的最後活動時間 —— 跨分店共用
+    // 2. 各分店資料（pos_branch_<id>）：技師、房間、交易紀錄、課程、會員、庫存等 —— 每間分店完全獨立，不互相污染
+    const GLOBAL_KEY = 'pos_meta';
+    const branchStorageKey = (branchId) => `pos_branch_${branchId}`;
+    let activeBranchId = currentBranch.value; // 目前實際載入中的分店（與 currentBranch 分開追蹤，避免切換時互相覆寫）
+
+    function persistGlobal() {
+      try {
+        localStorage.setItem(GLOBAL_KEY, JSON.stringify({
+          branches: branches.value,
+          bossPasswordHash: bossPasswordHash.value,
+          currentBranch: currentBranch.value,
+          lastActivity: lastActivity.value,
+          bossAuthenticated: bossAuthenticated.value
+        }));
+      } catch(e) { console.warn('全域設定儲存失敗', e); }
+    }
+
+    function persistBranchData(branchId = activeBranchId) {
+      try {
+        const data = {
+          staffs: staffs.value,
+          roomStatus: roomStatus.value,
+          dailyLog: dailyLog.value,
+          serviceCatalog: serviceCatalog.value,
+          dutyClean: dutyClean.value,
+          dutyMachine: dutyMachine.value,
+          storeInfo: storeInfo.value,
+          pendingTasks: pendingTasks.value,
+          lastRolloverDate: lastRolloverDate.value,
+          reservations: reservations.value,
+          members: members.value,
+          inventory: inventory.value,
+          auditLogs: auditLogs.value
+        };
+        localStorage.setItem(branchStorageKey(branchId), JSON.stringify(data));
+      } catch(e) { console.warn('分店資料儲存失敗', e); }
+    }
+
+    let persistTimer = null;
+    function persistState() {
+      if (persistTimer) clearTimeout(persistTimer);
+      persistTimer = setTimeout(() => {
+        persistGlobal();
+        persistBranchData();
+      }, 300);
+    }
+
+    function normalizeBranchData() {
+      ensureDutyComplete();
+      staffs.value.forEach(s => {
+        if (s.currentService === undefined) s.currentService = null;
+        if (s.attendanceLog === undefined) s.attendanceLog = [];
+        if (s.finishTimestamp === undefined) s.finishTimestamp = 0;
+        if (s.commissionOwed === undefined) s.commissionOwed = 0;
+        if (s.status === 'timer' && s.serviceStartTimestamp) recomputeTimer(s);
+        if (s.prepStartTimestamp) s.prepDuration = (Date.now() - s.prepStartTimestamp) / 1000;
+        if (s.outStartTimestamp) s.outDuration = (Date.now() - s.outStartTimestamp) / 1000;
+      });
+      serviceCatalog.value.forEach(svc => {
+        if (svc.extendRate === undefined) svc.extendRate = 1000;
+        if (svc.requiredSkills === undefined) svc.requiredSkills = [];
+      });
+    }
+
+    function initBranchDefaults() {
+      staffs.value = defaultStaffs();
+      roomStatus.value = defaultRoomStatus();
+      dailyLog.value = [];
+      serviceCatalog.value = defaultServiceCatalog();
+      dutyClean.value = {};
+      dutyMachine.value = {};
+      const branchMeta = branches.value.find(b => b.id === currentBranch.value);
+      storeInfo.value = { name: branchMeta ? branchMeta.name : '悠楽', phone:'03-xxxx-xxxx', address:'東京都...' };
+      pendingTasks.value = [];
+      lastRolloverDate.value = todayKey();
+      reservations.value = [];
+      members.value = [];
+      inventory.value = defaultInventory();
+      auditLogs.value = [];
+    }
+
+    function loadBranchData(branchId) {
+      try {
+        const raw = localStorage.getItem(branchStorageKey(branchId));
+        if (raw) {
+          const data = JSON.parse(raw);
+          staffs.value = data.staffs || defaultStaffs();
+          roomStatus.value = data.roomStatus || defaultRoomStatus();
+          dailyLog.value = data.dailyLog || [];
+          serviceCatalog.value = data.serviceCatalog || defaultServiceCatalog();
+          dutyClean.value = data.dutyClean || {};
+          dutyMachine.value = data.dutyMachine || {};
+          storeInfo.value = data.storeInfo || { name:'悠楽', phone:'03-xxxx-xxxx', address:'東京都...' };
+          pendingTasks.value = data.pendingTasks || [];
+          lastRolloverDate.value = data.lastRolloverDate || todayKey();
+          reservations.value = data.reservations || [];
+          members.value = data.members || [];
+          inventory.value = data.inventory || defaultInventory();
+          auditLogs.value = data.auditLogs || [];
+        } else {
+          initBranchDefaults();
+        }
+      } catch(e) {
+        console.warn('分店資料讀取失敗，改用預設值', e);
+        initBranchDefaults();
+      }
+      normalizeBranchData();
+      calculateQueue();
+      activeBranchId = branchId;
+    }
+
+    function restoreState() {
+      // 1) 先還原全域設定（分店清單、密碼、最後活動時間）
+      try {
+        const raw = localStorage.getItem(GLOBAL_KEY);
+        if (raw) {
+          const data = JSON.parse(raw);
+          if (data.branches && data.branches.length > 0) branches.value = data.branches;
+          if (data.bossPasswordHash) bossPasswordHash.value = data.bossPasswordHash;
+          if (data.currentBranch) currentBranch.value = data.currentBranch;
+          if (data.lastActivity) lastActivity.value = data.lastActivity;
+          if (data.bossAuthenticated) {
+            // 還原登入狀態前，先檢查是否已超過15分鐘閒置逾時，避免重新整理頁面繞過閒置登出
+            if (Date.now() - (data.lastActivity || 0) > 15 * 60 * 1000) {
+              bossAuthenticated.value = false;
+            } else {
+              bossAuthenticated.value = true;
+            }
+          }
+        } else {
+          // 舊版資料相容：若偵測到舊版單一 key 'pos_data'，嘗試遷移到「本店」
+          const legacyRaw = localStorage.getItem('pos_data');
+          if (legacyRaw) {
+            try {
+              const legacy = JSON.parse(legacyRaw);
+              if (legacy.branches) branches.value = legacy.branches;
+              if (legacy.bossPasswordHash) bossPasswordHash.value = legacy.bossPasswordHash;
+              localStorage.setItem(branchStorageKey('main'), JSON.stringify(legacy));
+              localStorage.removeItem('pos_data');
+            } catch(e) { console.warn('舊版資料遷移失敗', e); }
+          }
+        }
+      } catch(e) { console.warn('全域設定讀取失敗', e); }
+
+      // 2) 再依目前分店載入（或初始化）該分店的獨立資料
+      loadBranchData(currentBranch.value);
+
+      // 3) 若無密碼雜湊，設定預設密碼 0000，並標記為「仍為預設密碼」以便登入後強制提醒更改
+      if (!bossPasswordHash.value) {
+        sha256('0000').then(h => { bossPasswordHash.value = h; persistGlobal(); });
+      }
+    }
+
+    // ===== 老闆驗證 =====
+    const enterBossMode = () => {
+      if (bossAuthenticated.value) currentPage.value = 'boss';
+      else { bossPassword.value = ''; bossError.value = false; currentPage.value = 'boss'; }
+    };
+    const verifyBoss = async () => {
+      const hash = await sha256(bossPassword.value);
+      if (hash === bossPasswordHash.value) {
+        bossAuthenticated.value = true;
+        bossError.value = false;
+        lastActivity.value = Date.now();
+        persistGlobal();
+        // 若目前密碼仍是系統預設的 0000，強制提醒並跳出變更密碼視窗
+        const defaultHash = await sha256('0000');
+        if (bossPasswordHash.value === defaultHash) {
+          usingDefaultPassword.value = true;
+          openChangePasswordModal();
+        }
+      } else {
+        bossError.value = true;
+      }
+    };
+    const logout = () => {
+      bossAuthenticated.value = false;
+      currentPage.value = 'queue';
+      persistGlobal();
+    };
+    const openChangePasswordModal = () => {
+      changePasswordForm.value = { oldPw:'', newPw:'', newPw2:'' };
+      showChangePasswordModal.value = true;
+    };
+    const submitChangePassword = async () => {
+      const f = changePasswordForm.value;
+      const oldHash = await sha256(f.oldPw);
+      if (oldHash !== bossPasswordHash.value) { alert('原密碼錯誤'); return; }
+      if (!f.newPw || f.newPw.length < 4) { alert('新密碼至少需要4個字元'); return; }
+      if (f.newPw !== f.newPw2) { alert('兩次輸入的新密碼不一致'); return; }
+      bossPasswordHash.value = await sha256(f.newPw);
+      usingDefaultPassword.value = false;
+      showChangePasswordModal.value = false;
+      persistGlobal();
+      addAuditLog('變更密碼');
+      alert('密碼已更新');
+    };
+
+    // ===== 計時器相關 =====
+    function recomputeTimer(s) {
+      if (s.status !== 'timer' || !s.currentService || !s.serviceStartTimestamp) return;
+      const elapsed = (Date.now() - s.serviceStartTimestamp) / 1000;
+      const totalSeconds = s.currentService.duration * 60;
+      const remain = totalSeconds - elapsed;
+      if (remain > 0) {
+        s.timer = remain;
+        s.isOvertime = false;
+        s.overtimeSeconds = 0;
+        s.overtimeDeduction = 0;
+      } else {
+        const overtime = -remain;
+        s.timer = 0;
+        s.isOvertime = true;
+        s.overtimeSeconds = overtime;
+        if (overtime > 300) {
+          const totalMinutes = Math.ceil(overtime / 60);
+          let extraMinutes = Math.ceil(totalMinutes / 5) * 5;
+          if (extraMinutes < 10) extraMinutes = 10;
+          const rate = s.currentService?.overtimeRate || 1000;
+          s.overtimeDeduction = Math.round((extraMinutes / 10) * rate);
+        } else {
+          s.overtimeDeduction = 0;
+        }
+      }
+    }
+
+    function checkPrepTimeout() {
+      const now = Date.now();
+      staffs.value.forEach(s => {
+        if (s.status === 'prep' && s.prepStartTimestamp) {
+          const elapsed = (now - s.prepStartTimestamp) / 1000;
+          s.prepDuration = elapsed;
+          if (elapsed >= 300) {
+            s.status = 'waiting';
+            s.prepStartTimestamp = 0;
+            s.prepDuration = 0;
+            s.currentService = null;
+            if (s.room) {
+              roomStatus.value[s.room].status = '空房';
+              roomStatus.value[s.room].previousUser = s.name || s.staffNumber;
+              roomStatus.value[s.room].currentUser = null;
+              s.room = null;
+            }
+            s.queueTimestamp = now;
+            s.finishTimestamp = 0;
+            calculateQueue();
+            persistState();
+            alert(`${s.name || s.staffNumber} 準備超時，已移至末牌`);
+            addAuditLog(`技師 ${s.staffNumber} 準備超時退牌`);
+          }
+        }
+      });
+    }
+
+    function autoCheckShift() {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      let changed = false;
+      staffs.value.forEach(s => {
+        if (s.status === 'standby') {
+          const [h, m] = s.expectedTime.split(':').map(Number);
+          const expectedMinutes = h * 60 + m;
+          if (currentMinutes >= expectedMinutes && !isPastShiftEnd(s, now)) {
+            s.status = 'waiting';
+            s.queueTimestamp = Date.now();
+            s.finishTimestamp = 0;
+            markAttendance(s);
+            changed = true;
+          }
+        }
+        if (s.status === 'waiting' && isPastShiftEnd(s, now)) {
+          s.status = 'standby';
+          s.arrivalTimestamp = Date.now();
+          changed = true;
+        }
+      });
+      if (changed) { calculateQueue(); persistState(); }
+    }
+
+    // ===== 圖表更新 =====
+    function updateCharts() {
+      nextTick(() => {
+        // 營收趨勢（近7日）
+        const canvas1 = document.getElementById('revenueChart');
+        if (canvas1) {
+          const ctx = canvas1.getContext('2d');
+          if (revenueChartInstance) revenueChartInstance.destroy();
+          const days = [];
+          const revenues = [];
+          for (let i=6; i>=0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const key = todayKey(d);
+            days.push(`${d.getMonth()+1}/${d.getDate()}`);
+            const dayTotal = dailyLog.value.filter(l => todayKey(new Date(l.time)) === key).reduce((s,l)=>s + l.amount + (l.lelaiAmount||0), 0);
+            revenues.push(dayTotal);
+          }
+          revenueChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: { labels: days, datasets: [{ label: '營收 (¥)', data: revenues, borderColor: '#3b82f6', tension: 0.2 }] },
+            options: { responsive: true, maintainAspectRatio: false }
+          });
+        }
+        // 尖峰時段（本日）
+        const canvas2 = document.getElementById('peakChart');
+        if (canvas2) {
+          const ctx = canvas2.getContext('2d');
+          if (peakChartInstance) peakChartInstance.destroy();
+          const hours = Array(24).fill(0);
+          const today = todayKey();
+          dailyLog.value.filter(l => todayKey(new Date(l.time)) === today).forEach(l => {
+            const h = new Date(l.time).getHours();
+            hours[h] += 1;
+          });
+          peakChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: { labels: Array.from({length:24}, (_,i)=>i+':00'), datasets: [{ label: '客數', data: hours, backgroundColor: '#f97316' }] },
+            options: { responsive: true, maintainAspectRatio: false }
+          });
+        }
+      });
+    }
+
+    // ===== 閒置登出 =====
+    function checkInactivity() {
+      if (bossAuthenticated.value && Date.now() - lastActivity.value > 15 * 60 * 1000) {
+        logout();
+        alert('因閒置過久已自動登出');
+      }
+    }
+
+    // ===== 監聽 =====
+    watch([staffs, roomStatus, dutyClean, dutyMachine], () => persistState(), { deep: true });
+
+    // ===== 生命週期 =====
+    onMounted(() => {
+      restoreState(); // 內含：全域設定還原、分店資料載入、預設密碼設定（如尚無密碼）
+      checkDailyRollover();
+      scanAttendance();
+      updateClock();
+      // 計時器合併
+      setInterval(() => {
+        let changed = false;
+        const now = Date.now();
+        staffs.value.forEach(s => {
+          if (s.status === 'out' && s.outStartTimestamp) s.outDuration = (now - s.outStartTimestamp) / 1000;
+          if (s.status === 'prep' && s.prepStartTimestamp) s.prepDuration = (now - s.prepStartTimestamp) / 1000;
+          if (s.status === 'timer') {
+            const old = s.overtimeDeduction || 0;
+            recomputeTimer(s);
+            if (old !== s.overtimeDeduction) changed = true;
+          }
+        });
+        checkPrepTimeout();
+        if (changed) persistState();
+        updateClock();
+        // 自動更新圖表（每60秒）
+        updateCharts();
+        checkInactivity();
+      }, 1000);
+      setInterval(autoCheckShift, 10000);
+      setInterval(() => { checkDailyRollover(); scanAttendance(); }, 60000);
+      // 監聽活動（同時持久化，避免重新整理頁面就能繞過閒置登出機制）
+      document.addEventListener('click', () => {
+        if (bossAuthenticated.value) { lastActivity.value = Date.now(); persistGlobal(); }
+      });
+      // 初始圖表
+      setTimeout(updateCharts, 500);
+    });
+
+    return {
+      lang, $t, menuLang, currentPage,
+      bossAuthenticated, bossPassword, bossError, usingDefaultPassword,
+      allSkills,
+      serviceCatalog, staffs, roomStatus,
+      filterSource, filteredCourses, getSourceLabel,
+      selectedService, addons, selectedPromo, checkoutMsg,
+      weekDays, dutyClean, dutyMachine, todayDuty, todaySpecial,
+      storeInfo, newStaffNumber, newStaffIsLelai,
+      showCheckoutModal, checkoutStaffId, checkoutForm,
+      checkoutBaseTotal, checkoutSheetsFee, checkoutOtherAddons,
+      checkoutPromoDiscount, checkoutPaymentFee, checkoutFinalTotal,
+      showPenaltyModal, penaltyTarget,
+      waitingStaffs, standbyStaffs, outStaffs, interviewStaffs, leftStaffs, allActiveStaffs,
+      activeStaffName, availableCheckoutStaffs,
+      calculatedTotal, dailyLog,
+      todayRevenue, todayCustomers, monthlyRevenue, monthlyCustomers, topCourses, staffPerformance, recentLogs,
+      customerSearchText, customerSearchStaffId, customerSearchResults,
+      currentDateTime, todayHoliday,
+      formatTimer, formatTime, formatDateTime, getStatusText, getStatusBadgeClass, calcNamedRate, monthlyAttendanceCount, isHeadOfQueue,
+      isLiveInToday, toggleExcused,
+      setRoomStatus, startOut, endOut, startInterview, endInterview,
+      startSupport, endSupport, startBring, endBring,
+      forceWaiting,
+      goBackLelai, recallFromLelai,
+      selectService, selectServiceById, customerNameSuggestions, quickSourceOptions, openCustomCourse, openCheckoutFromMenu, openMenu, confirmCheckout,
+      startTimer, finishTask,
+      recordReview, showPenaltyDetail,
+      addStaff, removeStaff, saveDuty, saveSchedule, saveStoreInfo, removeCourse, saveCourses,
+      handleImageUpload, removeImage,
+      setAllSkills, saveSkills, toggleRequiredSkill,
+      enterBossMode, verifyBoss, logout,
+      clearOldLogs, persistState,
+      showSwitchModal, switchModalReason, switchReasons, openSwitchModal, confirmSwitchStaff,
+      showExtendModal, extendModalMinutes, openExtendModal, confirmExtend,
+      showRoomAssignModal, chooseRoom, skipRoomAssign,
+      showCustomCourseModal, customCourseForm, submitCustomCourse,
+      showChangePasswordModal, changePasswordForm, openChangePasswordModal, submitChangePassword,
+      pendingTasks, showAssignPendingModal, assignPendingStaffId, openAssignPendingModal, confirmAssignPending,
+      exportBackup, handleImportBackup,
+      paymentMethods: [{ name:'現金', fee:0 }, { name:'PayPay', fee:0 }, { name:'刷卡', fee:0.05 }],
+      // 新增功能
+      branches, currentBranch, newBranchName, switchBranch, addBranch,
+      reservations, reservationForm, addReservation, cancelReservation, getStaffName, getServiceName,
+      members, memberForm, addMember, addPoints, deductPoints, deleteMember,
+      inventory, adjustInventory, setInventory,
+      auditLogs,
+      exportExcel,
+      updateCharts // 供外部呼叫
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
